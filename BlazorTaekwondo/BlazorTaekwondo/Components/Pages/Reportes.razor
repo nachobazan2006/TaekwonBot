@@ -1,0 +1,518 @@
+@page "/reportes"
+@page "/estadisticas"
+@attribute [Authorize]
+@using BlazorTaekwondo.Models
+@using BlazorTaekwondo.Services
+@inject ReportesService ReportesService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="reportes-page">
+    <header class="reportes-header ui-reveal" style="--reveal-delay: 0ms;">
+        <div>
+            <h1>Estadisticas</h1>
+            <p>Lectura analitica e historica del club</p>
+        </div>
+
+        <div class="rep-header-actions">
+            @if (datos is not null && datos.PeriodosDisponibles.Any())
+            {
+                <label class="rep-period-filter">
+                    <span>Mes de analisis</span>
+                    <select value="@periodoSeleccionado" @onchange="CambiarPeriodo">
+                        @foreach (var periodo in datos.PeriodosDisponibles)
+                        {
+                            <option value="@periodo.Key">@periodo.Label</option>
+                        }
+                    </select>
+                </label>
+            }
+
+            <button class="rep-action" @onclick="Actualizar" disabled="@cargando">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M20 6v5h-5M4 18v-5h5M18.4 9A7 7 0 0 0 6.1 6.1L4 8.2m16 7.6-2.1 2.1A7 7 0 0 1 5.6 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                @(cargando ? "Actualizando..." : "Actualizar")
+            </button>
+
+            <button type="button"
+                    class="rep-icon-action"
+                    @onclick="ToggleMontos"
+                    aria-pressed="@mostrarMontos"
+                    aria-label="@(mostrarMontos ? "Ocultar montos" : "Mostrar montos")"
+                    title="@(mostrarMontos ? "Ocultar montos" : "Mostrar montos")">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    @if (mostrarMontos)
+                    {
+                        <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" stroke="currentColor" stroke-width="2" />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+                    }
+                    else
+                    {
+                        <path d="M3 3l18 18M10.6 10.7a3 3 0 0 0 4 4M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a18.2 18.2 0 0 1-3.2 4.2M6.5 6.6C3.9 8.4 2 12 2 12a18.7 18.7 0 0 0 5.3 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    }
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    @if (cargando)
+    {
+        <div class="report-state">
+            <div class="spinner"></div>
+            <span>Calculando estadisticas...</span>
+        </div>
+    }
+    else if (error)
+    {
+        <div class="report-state error">No se pudo conectar con la API. Verifica la conexion e intenta nuevamente.</div>
+    }
+    else if (datos is not null)
+    {
+        <section class="rep-kpi-grid">
+   
+
+            <article class="rep-kpi-card ui-reveal" style="--reveal-delay: 100ms;">
+                <div class="rep-kpi-top">
+                    <span>Mes seleccionado</span>
+                    <i class="rep-kpi-icon money">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 7h7a3 3 0 0 1 0 6h-6a3 3 0 0 0 0 6h7M12 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </i>
+                </div>
+                <strong class="js-reportes-counter" data-count-value="@datos.TotalPagosCuotas" data-count-type="number" data-animate-key="@datos.PeriodoSeleccionado">@datos.TotalPagosCuotas</strong>
+                <p>cuotas cobradas</p>
+                <span class="trend up">@datos.AlumnosUnicosCuotas alumnos alcanzados</span>
+                <div class="mini-bars green-bars" aria-hidden="true">
+                    @foreach (var value in new[] { 32, 58, 42, 54, 44, 66, 38, 36, 48, 60, 76 })
+                    {
+                        <span style="height:@value%"></span>
+                    }
+                </div>
+            </article>
+
+            <article class="rep-kpi-card ui-reveal" style="--reveal-delay: 160ms;">
+                <div class="rep-kpi-top">
+                    <span>Acumulado</span>
+                    <i class="rep-kpi-icon exam">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 3h8v4H8V3Zm-2 3h12v15H6V6Zm4 6h4m-4 4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </i>
+                </div>
+                <strong class="js-reportes-counter" data-count-value="@datos.TotalExamenesRendidos" data-count-type="number" data-animate-key="@datos.PeriodoSeleccionado">@datos.TotalExamenesRendidos</strong>
+                <p>examenes rendidos</p>
+                <span class="trend neutral">Sin filtro mensual</span>
+                <div class="mini-bars soft-bars" aria-hidden="true">
+                    @foreach (var value in new[] { 12, 14, 20, 28, 34, 24, 15, 13, 18, 21, 27, 25, 19 })
+                    {
+                        <span style="height:@value%"></span>
+                    }
+                </div>
+            </article>
+
+            <article class="rep-kpi-card danger ui-reveal" style="--reveal-delay: 220ms;">
+                <div class="rep-kpi-top">
+                    <span>Cobro del periodo</span>
+                    <i class="rep-kpi-icon alert">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="m12 4 9 16H3L12 4Zm0 5v5m0 3h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </i>
+                </div>
+                <strong class="js-reportes-counter" data-count-value="@datos.AlumnosSinCuotaMesActual" data-count-type="number" data-animate-key="@datos.PeriodoSeleccionado">@datos.AlumnosSinCuotaMesActual</strong>
+                <p>pendientes de cuota</p>
+                <svg class="mini-line danger-line" viewBox="0 0 180 48" preserveAspectRatio="none" aria-hidden="true">
+                    <polyline points="0,34 18,36 36,25 54,15 72,24 90,18 108,28 126,10 144,18 162,26 180,22" />
+                </svg>
+            </article>
+        </section>
+
+        <section class="reporte-section radar-section ui-reveal" style="--reveal-delay: 260ms;">
+            <div class="rep-section-header">
+                <div class="rep-title-mark"></div>
+                <div>
+                    <h2>Radar operativo</h2>
+                    <p>Senales rapidas para saber como viene la captacion, el cobro y el seguimiento del padron en @datos.MesActualLabel.</p>
+                </div>
+                <label class="view-filter">
+                    <span>Ver:</span>
+                    <select>
+                        <option>Resumen ejecutivo</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="radar-grid">
+                <article class="radar-card evolution-card">
+                    <h3>A) Evolucion mensual del club</h3>
+                    <div class="legend-row">
+                        <span><i class="dot red"></i>Cuotas cobradas</span>
+                        <span><i class="dot navy"></i>Altas del mes</span>
+                    </div>
+                    <div class="line-chart">
+                        <svg viewBox="0 0 640 180" preserveAspectRatio="none" aria-hidden="true">
+                            <path class="grid-line" d="M0 40H640M0 90H640M0 140H640" />
+                            <polyline class="chart-line red-line" points="@PointsFor(datos.CuotasPorMes.Select(x => (double)x.Cantidad).ToList(), 640, 180)" />
+                            <polyline class="chart-line navy-line" points="@PointsFor(datos.AltasPorMes.Select(x => (double)x.Cantidad).ToList(), 640, 180)" />
+                        </svg>
+                    </div>
+                    <div class="chart-labels">
+                        @foreach (var item in datos.CuotasPorMes)
+                        {
+                            <span>@item.Label</span>
+                        }
+                    </div>
+                    <p>Valores mensuales recientes</p>
+                </article>
+
+                <article class="radar-card schedule-card">
+                    <h3>B) Recaudacion por horario</h3>
+                    @if (!datos.RecaudacionPorHorario.Any())
+                    {
+                        <p class="rep-no-data">Todavia no hay cuotas registradas por horario.</p>
+                    }
+                    else
+                    {
+                        <div class="schedule-bars">
+                            @foreach (var item in datos.RecaudacionPorHorario.Take(4))
+                            {
+                                <div class="schedule-row">
+                                    <span>@item.Label</span>
+                                    <div class="schedule-track">
+                                        <i style="width:@(PctSobreTotal(item.Valor, datos.TotalCuotas))%"></i>
+                                    </div>
+                                    <strong>@FormatearMonto(item.Valor) (@(PctSobreTotal(item.Valor, datos.TotalCuotas))%)</strong>
+                                </div>
+                            }
+                        </div>
+                        <div class="schedule-total">Total recaudado: <strong>@FormatearMonto(datos.TotalCuotas)</strong></div>
+                    }
+                </article>
+
+                <article class="radar-card compact-card">
+                    <h3>C) Altas del mes</h3>
+                    <strong class="big-red js-reportes-counter" data-count-value="@datos.AltasMesActual" data-count-type="number" data-animate-key="@datos.PeriodoSeleccionado">@datos.AltasMesActual</strong>
+                    <p>@datos.MesActualLabel</p>
+                    <span class="trend @(AltasVsPromedioDelta() >= 0 ? "up" : "down")">
+                        @(AltasVsPromedioDelta() >= 0 ? "Sube" : "Baja") @Math.Abs(AltasVsPromedioDelta()).ToString("N1") vs promedio previo
+                    </span>
+                    <small>Promedio historico anterior: @datos.PromedioAltasPrevias.ToString("N1") altas por mes</small>
+                </article>
+
+                <article class="radar-card ranking-card">
+                    <h3>D) Ranking de captacion</h3>
+                    <p>Meses mas fuertes hasta @datos.MesActualLabel.</p>
+                    @foreach (var item in datos.RankingCaptacionMeses.Take(3).Select((valor, index) => new { valor, index }))
+                    {
+                        <div class="ranking-row">
+                            <span>#@(item.index + 1)</span>
+                            <strong>@item.valor.Label</strong>
+                            <b>@item.valor.Cantidad alta@(item.valor.Cantidad != 1 ? "s" : "")</b>
+                        </div>
+                    }
+                </article>
+
+                <article class="radar-card missing-card">
+                    <h3>E) Sin cuota del mes</h3>
+                    <strong class="js-reportes-counter" data-count-value="@datos.AlumnosSinCuotaMesActual" data-count-type="number" data-animate-key="@datos.PeriodoSeleccionado">@datos.AlumnosSinCuotaMesActual</strong>
+                    <p>alumnos sin cuota</p>
+                    <div class="rep-chip-list">
+                        @foreach (var nombre in AlumnosSinCuotaVisibles())
+                        {
+                            <span>@nombre</span>
+                        }
+                        @if (!mostrarTodosSinCuota && datos.AlumnosSinCuotaMesActualDetalle.Count > 5)
+                        {
+                            <span>+ @(datos.AlumnosSinCuotaMesActualDetalle.Count - 5) mas</span>
+                        }
+                    </div>
+                    @if (datos.AlumnosSinCuotaMesActualDetalle.Any())
+                    {
+                        <button type="button" @onclick="ToggleAlumnosSinCuota">
+                            @(mostrarTodosSinCuota ? "Mostrar menos" : $"Ver los {datos.AlumnosSinCuotaMesActual} alumnos sin cuota")
+                            <span aria-hidden="true">&#8594;</span>
+                        </button>
+                    }
+                </article>
+
+                <article class="radar-card medical-card">
+                    <h3>F) Alumnos con ficha medica</h3>
+                    <div class="medical-donut-row">
+                        <div class="medical-donut" style="--pct:@FichaMedicaPct();">
+                            <span>@datos.TotalAlumnos<small>Total</small></span>
+                        </div>
+                        <div class="medical-legend">
+                            <div><i class="green"></i><span>Con ficha</span><strong>@datos.AlumnosConFichaMedica (@FichaMedicaPct()%)</strong></div>
+                            <div><i class="red"></i><span>Sin ficha</span><strong>@(datos.TotalAlumnos - datos.AlumnosConFichaMedica) (@(100 - FichaMedicaPct())%)</strong></div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="reporte-section module-section ui-reveal" style="--reveal-delay: 320ms;">
+            <div class="module-heading">
+                <i class="module-icon quota">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 19V5m0 14h16M8 15l3-3 3 2 5-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </i>
+                <div>
+                    <h2>Cuotas</h2>
+                    <p>Recaudacion y distribucion de cuotas para @datos.MesActualLabel.</p>
+                </div>
+            </div>
+
+            <div class="module-two-col">
+                <article class="chart-box">
+                    <h3>Ultimos meses hasta el corte</h3>
+                    @if (!datos.CuotasPorMes.Any())
+                    {
+                        <p class="rep-no-data">Sin datos de periodos.</p>
+                    }
+                    else
+                    {
+                        <div class="area-chart">
+                            <svg viewBox="0 0 640 200" preserveAspectRatio="none" aria-hidden="true">
+                                <path class="grid-line" d="M0 38H640M0 88H640M0 138H640" />
+                                <polyline class="chart-line red-line" points="@PointsFor(datos.CuotasPorMes.Select(x => (double)x.Valor).ToList(), 640, 200)" />
+                            </svg>
+                        </div>
+                        <div class="chart-labels">
+                            @foreach (var item in datos.CuotasPorMes)
+                            {
+                                <span>@item.Label</span>
+                            }
+                        </div>
+                    }
+                </article>
+
+                <article class="chart-box quota-donut-box">
+                    <h3>Cobro por clase / horario</h3>
+                    @if (!datos.CuotasPorClase.Any())
+                    {
+                        <p class="rep-no-data">Sin datos por clase en este mes.</p>
+                    }
+                    else
+                    {
+                        <div class="quota-donut-row">
+                            <div class="quota-donut"></div>
+                            <div class="quota-list">
+                                @foreach (var item in datos.CuotasPorClase.Take(4))
+                                {
+                                    <div>
+                                        <span><i></i>@item.Label <b>@item.Cantidad</b></span>
+                                        <strong>@FormatearMonto(item.Valor)</strong>
+                                    </div>
+                                }
+                                <div class="quota-total"><span>Total del mes</span><strong>@FormatearMonto(datos.TotalCuotas)</strong></div>
+                            </div>
+                        </div>
+                    }
+                </article>
+            </div>
+        </section>
+
+        <section class="reporte-section module-section ui-reveal" style="--reveal-delay: 360ms;">
+            <div class="module-heading">
+                <i class="module-icon exam">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M8 3h8v4H8V3Zm-2 3h12v15H6V6Zm4 6h4m-4 4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </i>
+                <div>
+                    <h2>Examenes</h2>
+                    <p>Vista acumulada del modulo. Esta seccion no se filtra por mes porque el examen todavia no guarda fecha.</p>
+                </div>
+            </div>
+
+            @if (!datos.ExamenesPorTipo.Any())
+            {
+                <div class="empty-state">
+                    <i>
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 3h8v4H8V3Zm-2 3h12v15H6V6Zm4 6h4m-4 4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </i>
+                    <strong>Sin examenes registrados aun.</strong>
+                    <span>Aun no se han registrado examenes en el sistema.</span>
+                </div>
+            }
+            else
+            {
+                <div class="exam-grid">
+                    @foreach (var item in datos.ExamenesPorTipo.Take(4))
+                    {
+                        <article>
+                            <span>@item.Label</span>
+                            <strong>@item.Cantidad</strong>
+                            <p>@FormatearMonto(item.Valor)</p>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="reporte-section module-section ui-reveal" style="--reveal-delay: 400ms;">
+            <div class="module-heading">
+                <i class="module-icon navy">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2" />
+                        <path d="M3.8 19c.45-3.3 2.25-5 5.2-5s4.75 1.7 5.2 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <circle cx="17" cy="9" r="2.4" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                </i>
+                <div>
+                    <h2>Padron de alumnos</h2>
+                    <p>Corte del padron al cierre de @datos.MesActualLabel, con distribucion, ficha medica y evolucion reciente.</p>
+                </div>
+            </div>
+
+            <div class="module-two-col">
+                <article class="chart-box class-bars-box">
+                    <h3>Alumnos por clase</h3>
+                    @foreach (var item in datos.AlumnosPorHorario)
+                    {
+                        <div class="class-bar" style="--pct:@BarPct(item.Cantidad, MaxHorarioCantidad);">
+                            <strong>@item.Cantidad</strong>
+                            <i></i>
+                            <span>@item.Label</span>
+                            <b>@item.Cantidad alumno@(item.Cantidad != 1 ? "s" : "")</b>
+                        </div>
+                    }
+                </article>
+
+                <article class="chart-box compliance-box">
+                    <h3>Cumplimiento <span>Ficha medica</span></h3>
+                    <div class="compliance-head">
+                        <span>@FichaMedicaPct()%</span>
+                        <strong>@datos.AlumnosConFichaMedica / @datos.TotalAlumnos</strong>
+                    </div>
+                    <div class="compliance-track">
+                        <i style="width:@FichaMedicaPct()%"></i>
+                    </div>
+                    <div class="compliance-list">
+                        <div><i class="green"></i><span>Con ficha (@datos.AlumnosConFichaMedica)</span><strong>@FichaMedicaPct()%</strong></div>
+                        <div><i class="muted"></i><span>Sin ficha (@(datos.TotalAlumnos - datos.AlumnosConFichaMedica))</span><strong>@(100 - FichaMedicaPct())%</strong></div>
+                    </div>
+                </article>
+            </div>
+
+            @if (datos.AltasPorMes.Count > 1)
+            {
+                <article class="chart-box full-history">
+                    <h3>Ultimos meses de altas hasta el corte</h3>
+                    <div class="history-line">
+                        <svg viewBox="0 0 900 180" preserveAspectRatio="none" aria-hidden="true">
+                            <path class="grid-line" d="M0 40H900M0 90H900M0 140H900" />
+                            <polyline class="chart-line navy-line" points="@PointsFor(datos.AltasPorMes.Select(x => (double)x.Cantidad).ToList(), 900, 180)" />
+                        </svg>
+                    </div>
+                    <div class="chart-labels">
+                        @foreach (var item in datos.AltasPorMes)
+                        {
+                            <span>@item.Label</span>
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private ReportesData? datos;
+    private bool cargando = true;
+    private bool error;
+    private bool mostrarTodosSinCuota;
+    private bool mostrarMontos;
+    private string periodoSeleccionado = string.Empty;
+
+    private int MaxHorarioCantidad =>
+        datos?.AlumnosPorHorario.Any() == true ? datos.AlumnosPorHorario.Max(x => x.Cantidad) : 1;
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await CargarDatos();
+        await JS.InvokeVoidAsync("ReportesUI.refresh");
+    }
+
+    private async Task Actualizar() => await CargarDatos();
+
+    private async Task CambiarPeriodo(ChangeEventArgs e)
+    {
+        periodoSeleccionado = e.Value?.ToString() ?? string.Empty;
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        error = false;
+        mostrarTodosSinCuota = false;
+        StateHasChanged();
+
+        datos = await ReportesService.CargarDatosAsync(periodoSeleccionado);
+        error = datos is null;
+        if (datos is not null)
+        {
+            periodoSeleccionado = datos.PeriodoSeleccionado;
+        }
+
+        cargando = false;
+    }
+
+    private void ToggleAlumnosSinCuota() => mostrarTodosSinCuota = !mostrarTodosSinCuota;
+
+    private void ToggleMontos() => mostrarMontos = !mostrarMontos;
+
+    private IEnumerable<string> AlumnosSinCuotaVisibles()
+    {
+        if (datos is null)
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        return mostrarTodosSinCuota
+            ? datos.AlumnosSinCuotaMesActualDetalle
+            : datos.AlumnosSinCuotaMesActualDetalle.Take(5);
+    }
+
+    private static int BarPct(int cantidad, int max) =>
+        max <= 0 ? 0 : (int)Math.Round((double)cantidad / max * 100);
+
+    private static int PctSobreTotal(decimal valor, decimal total) =>
+        total <= 0 ? 0 : (int)Math.Round(valor / total * 100);
+
+    private decimal AltasVsPromedioDelta() =>
+        datos is null ? 0 : datos.AltasMesActual - datos.PromedioAltasPrevias;
+
+    private int FichaMedicaPct() =>
+        datos is null || datos.TotalAlumnos == 0 ? 0
+        : (int)Math.Round((double)datos.AlumnosConFichaMedica / datos.TotalAlumnos * 100);
+
+    private string FormatearMonto(decimal monto) =>
+        mostrarMontos ? $"${monto:N0}" : "$****";
+
+    private static string PointsFor(IReadOnlyList<double> values, int width, int height)
+    {
+        if (values.Count == 0)
+        {
+            return $"0,{height - 20} {width},{height - 20}";
+        }
+
+        var max = Math.Max(1, values.Max());
+        var step = values.Count == 1 ? width : width / (double)(values.Count - 1);
+
+        return string.Join(" ", values.Select((value, index) =>
+        {
+            var x = Math.Round(index * step, 1);
+            var y = Math.Round(height - 18 - (value / max * (height - 42)), 1);
+            return $"{x.ToString(System.Globalization.CultureInfo.InvariantCulture)},{y.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }));
+    }
+}

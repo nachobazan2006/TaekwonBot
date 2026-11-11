@@ -1,0 +1,65 @@
+@using BlazorTaekwondo.Models
+@using System.Globalization
+
+@if (Operation is not null)
+{
+    <section class="operation-card" aria-labelledby="tb-operation-title" aria-busy="@Busy.ToString().ToLowerInvariant()">
+        <div class="operation-heading"><span class="operation-eyebrow">Revisar antes de continuar</span><span class="operation-state">@StatusLabel</span></div>
+        <h3 id="tb-operation-title" tabindex="-1">@Title</h3>
+        <p>@Operation.Summary</p>
+        <div class="operation-comparison">
+            <div><h4>Antes</h4>@Snapshot(Operation.Before)</div>
+            <div><h4>Después</h4>@Snapshot(Operation.After)</div>
+        </div>
+        @if (Operation.Status == "prepared")
+        {
+            <p class="operation-note">Solo se guardará al confirmar esta operación. Podés cancelar sin modificar pagos.</p>
+            <p class="operation-expiry">La propuesta vence el @Operation.ExpiresAt.ToLocalTime().ToString("dd/MM HH:mm").</p>
+            @if (StatusUnknown)
+            {
+                <div class="operation-warning" role="status">La respuesta no llegó. Primero comprobá el estado para evitar repetir la operación.</div>
+                <button type="button" class="btn-principal" disabled="@Busy" @onclick="OnCheck">Consultar estado</button>
+            }
+            else
+            {
+                <div class="operation-actions">
+                    <button id="tb-operation-confirm" type="button" class="btn-principal" disabled="@(Busy || Expired)" @onclick="OnConfirm">@(Busy ? "Procesando…" : ConfirmLabel)</button>
+                    <button id="tb-operation-cancel" type="button" class="btn-secundario" disabled="@Busy" @onclick="OnCancel">Cancelar operación</button>
+                </div>
+                @if (Expired) { <p role="status">Esta propuesta venció. Volvé a preparar la operación con los datos actuales.</p> }
+            }
+        }
+        else
+        {
+            <p class="operation-complete" role="status">@StatusMessage</p>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public OperationView? Operation { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool StatusUnknown { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnCheck { get; set; }
+    private bool Expired => Operation!.ExpiresAt.ToUniversalTime() <= DateTime.UtcNow;
+    private string Title => Operation!.Kind switch { "create" => "Registrar pago", "edit" => "Corregir pago", "void" => "Dejar pago sin efecto", "restore" => "Restaurar pago", _ => "Revisar operación" };
+    private string ConfirmLabel => Operation!.Kind switch { "create" => "Confirmar registro", "edit" => "Confirmar corrección", "void" => "Confirmar anulación", "restore" => "Confirmar restauración", _ => "Confirmar operación" };
+    private string StatusLabel => Operation!.Status switch { "prepared" => "Pendiente de confirmación", "confirmed" => "Confirmada", "cancelled" => "Cancelada", "expired" => "Vencida", _ => "Consultar estado" };
+    private string StatusMessage => Operation!.Status switch { "confirmed" => "Operación confirmada y registrada en la auditoría.", "cancelled" => "Operación cancelada. No se modificaron pagos.", "expired" => "La propuesta venció. No se confirmó ningún cambio.", _ => "Comprobá el estado antes de continuar." };
+    private RenderFragment Snapshot(PaymentView? payment) => builder =>
+    {
+        if (payment is null) { builder.AddContent(0, "Sin registro de pago"); return; }
+        builder.OpenElement(1, "dl");
+        var sequence = 2;
+        foreach (var item in new[] { ("Alumno", payment.StudentName), ("Período", $"{payment.Month:D2}/{payment.Year}"),
+            ("Importe", payment.Amount.ToString("C0", CultureInfo.GetCultureInfo("es-AR"))), ("Medio", payment.Method),
+            ("Fecha", payment.Date.ToString("dd/MM/yyyy")), ("Estado", payment.Status == "voided" ? "Sin efecto" : "Vigente") })
+        {
+            builder.OpenElement(sequence++, "dt"); builder.AddContent(sequence++, item.Item1); builder.CloseElement();
+            builder.OpenElement(sequence++, "dd"); builder.AddContent(sequence++, item.Item2); builder.CloseElement();
+        }
+        builder.CloseElement();
+    };
+}

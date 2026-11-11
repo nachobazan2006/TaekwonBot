@@ -1,0 +1,110 @@
+/* ================================================================
+   Exámenes — estilos específicos del módulo
+   ================================================================ */
+
+.examenes-page {
+    animation: pageReveal 0.28s var(--ease) both;
+}
+
+.examenes-page .ui-reveal-ready {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+    transition:
+        opacity 0.48s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms),
+        transform 0.48s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms),
+        box-shadow var(--t-base);
+    will-change: opacity, transform;
+}
+
+.examenes-page .ui-reveal-ready.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* ─── Layout ────────────────────────────────────────────────────── */
+
+.examenes-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+}
+
+/* ─── Topbar (4 elementos) ──────────────────────────────────────── */
+
+.tabla-topbar {
+    display: grid;
+    grid-template-columns: 1.4fr auto 1fr auto;
+    gap: var(--sp-2);
+    align-items: center;
+    margin-bottom: var(--sp-4);
+}
+
+/* ─── Checkboxes de campos ──────────────────────────────────────── */
+
+.form-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--sp-4);
+    padding: var(--sp-3) var(--sp-3);
+    background: var(--bg-subtle);
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border-light);
+}
+
+/* ─── Tabla ─────────────────────────────────────────────────────── */
+
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.examenes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+}
+
+.examenes-table thead tr {
+    background: var(--fx-aurora-surface);
+}
+
+.examenes-table th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-on-dark-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.examenes-table tbody tr {
+    border-bottom: 1px solid var(--border-light);
+    transition: background var(--t-fast);
+}
+
+.examenes-table tbody tr:nth-child(even) td { background: var(--bg-subtle); }
+.examenes-table tbody tr:last-child { border-bottom: none; }
+.examenes-table tbody tr:hover td { background: rgba(158,42,43,0.04) !important; }
+
+.examenes-table td {
+    padding: 11px 14px;
+    color: var(--text-primary);
+    vertical-align: middle;
+    background: var(--bg-surface);
+}
+
+/* ─── Responsive ────────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+    .examenes-grid { grid-template-columns: 1fr; }
+    .tabla-topbar { grid-template-columns: 1fr 1fr; }
+    .tabla-resumen { flex-direction: column; }
+}

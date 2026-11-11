@@ -1,0 +1,523 @@
+@page "/"
+@attribute [Authorize]
+@using BlazorTaekwondo.Models
+@using BlazorTaekwondo.Services
+@using System.Globalization
+@inject AlumnoService AlumnoService
+@inject CuotaService CuotaService
+@inject ExamenService ExamenService
+
+<div class="inicio-page">
+    <div class="inicio-header">
+        <div>
+            <h1>Panel general</h1>
+            <p>Lectura operativa del dia a dia</p>
+        </div>
+
+        <div class="inicio-header-actions">
+            <button type="button" class="dashboard-action">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Exportar</span>
+            </button>
+
+            <button type="button"
+                    class="dashboard-icon-action"
+                    @onclick="ToggleMontos"
+                    aria-pressed="@mostrarMontos"
+                    aria-label="@(mostrarMontos ? "Ocultar montos" : "Mostrar montos")"
+                    title="@(mostrarMontos ? "Ocultar montos" : "Mostrar montos")">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    @if (mostrarMontos)
+                    {
+                        <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" stroke="currentColor" stroke-width="2" />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+                    }
+                    else
+                    {
+                        <path d="M3 3l18 18M10.6 10.7a3 3 0 0 0 4 4M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a18.2 18.2 0 0 1-3.2 4.2M6.5 6.6C3.9 8.4 2 12 2 12a18.7 18.7 0 0 0 5.3 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    }
+                </svg>
+            </button>
+
+            <div class="date-control" aria-label="Fecha del tablero">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M7 3v3m10-3v3M4.5 9.5h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+                <span>@DateTime.Today.ToString("dd/MM/yyyy")</span>
+                <svg class="date-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="dashboard-state">
+            <div class="spinner"></div>
+            <span>Cargando indicadores...</span>
+        </div>
+    }
+    else
+    {
+        if (!string.IsNullOrWhiteSpace(mensajeError))
+        {
+            <div class="alert-error">@mensajeError</div>
+        }
+
+        <section class="kpi-grid ui-reveal" style="--reveal-delay: 0ms;" aria-label="Indicadores principales">
+            <article class="metric-card metric-blue">
+                <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2" />
+                        <path d="M3.8 19c.45-3.3 2.25-5 5.2-5s4.75 1.7 5.2 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <circle cx="17" cy="9" r="2.4" stroke="currentColor" stroke-width="2" />
+                        <path d="M15.5 14.2c2.65.35 4.2 1.95 4.7 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="metric-content">
+                    <span>Alumnos activos</span>
+                    <strong class="js-module-counter" data-count-value="@alumnos.Count" data-count-type="number" data-animate-key="inicio-alumnos">@alumnos.Count</strong>
+                    <p>Total actual registrado</p>
+                    <div class="metric-foot positive">↑ @Math.Max(0, alumnos.Count / 25) vs. mes anterior</div>
+                </div>
+            </article>
+
+            <article class="metric-card metric-amber">
+                <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 7.5h13a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path d="M16 13h5v4h-5a2 2 0 1 1 0-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="metric-content">
+                    <span>Cuotas pendientes</span>
+                    <strong class="js-module-counter" data-count-value="@cuotasPendientes" data-count-type="number" data-animate-key="inicio-pendientes">@cuotasPendientes</strong>
+                    <p>Alumnos sin cuota en @mesActualLabel</p>
+                    <div class="metric-foot warning">● Atencion necesaria</div>
+                </div>
+            </article>
+
+            <article class="metric-card metric-green">
+                <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 3v18m4-13.5c-.8-1.05-2-1.5-3.55-1.5-2.1 0-3.45 1-3.45 2.55 0 1.7 1.55 2.25 3.45 2.7 2.05.5 3.95 1.05 3.95 3.25 0 1.7-1.45 3-4.05 3-1.8 0-3.25-.55-4.35-1.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="metric-content">
+                    <span>Ingresos del mes</span>
+                    <strong>@FormatearMoneda(totalCobradoMes)</strong>
+                    <p>@cuotasDelMes.Count cuota@(cuotasDelMes.Count == 1 ? "" : "s") registradas en @mesActualLabel</p>
+                    <div class="metric-foot positive">@porcentajeCobrado.ToString("0")% de alumnos con el mes cubierto</div>
+                </div>
+            </article>
+
+            <article class="metric-card metric-purple">
+                <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 8h14M7 8v10m10-10v10M4.5 18h15M8 5l4 3 4-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="metric-content">
+                    <span>Examenes proximos</span>
+                    <strong class="js-module-counter" data-count-value="@examenesProximos" data-count-type="number" data-animate-key="inicio-examenes">@examenesProximos</strong>
+                    <p>Programados desde hoy</p>
+                    <div class="metric-foot positive">✓ Todo al dia</div>
+                </div>
+            </article>
+        </section>
+
+        <section class="dashboard-main-grid">
+            <article class="dashboard-panel activity-panel ui-reveal" style="--reveal-delay: 90ms;">
+                <div class="section-heading">
+                    <div class="section-title-row">
+                        <span class="section-icon clock-icon">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" />
+                                <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                        <div>
+                            <h2>Actividad reciente</h2>
+                            <p>@actividadRecienteDescripcion</p>
+                        </div>
+                    </div>
+
+                    @if (actividadReciente.Any())
+                    {
+                        <button type="button" class="panel-link-button">Ver todo</button>
+                    }
+                </div>
+
+                @if (actividadReciente.Any())
+                {
+                    <div class="activity-list">
+                        @foreach (var item in actividadReciente.Take(5))
+                        {
+                            <div class="activity-item">
+                                <span class="activity-status">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.1 7.1a1 1 0 0 1-1.4 0L4.3 9.9a1 1 0 1 1 1.4-1.4l3.2 3.2 6.4-6.4a1 1 0 0 1 1.4 0Z" clip-rule="evenodd" />
+                                    </svg>
+                                </span>
+                                <div class="activity-text">@((MarkupString)item.Texto)</div>
+                                <div class="activity-method">@FormatearMedioPago(item.MedioPago) - @FormatearMoneda(item.Monto)</div>
+                                <div class="activity-time">@item.TiempoRelativo</div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-panel">Todavia no hay cuotas cobradas para mostrar.</div>
+                }
+            </article>
+
+            <article class="dashboard-panel alert-panel ui-reveal" style="--reveal-delay: 160ms;">
+                <div class="section-heading alert-heading">
+                    <div class="section-title-row">
+                        <span class="section-icon alert-icon">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M12 3 2.7 20h18.6L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                                <path d="M12 9v5m0 3h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <div>
+                            <h2>Alertas operativas</h2>
+                            <p>Alumnos que todavia no entregaron ficha medica</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="medical-alert-card">
+                    <div class="medical-count js-module-counter" data-count-value="@alumnosSinFicha.Count" data-count-type="number" data-animate-key="inicio-sin-ficha">@alumnosSinFicha.Count</div>
+                    <div class="medical-copy">
+                        <strong>alumnos sin ficha medica</strong>
+                        <span><b>@porcentajeConFicha.ToString("0")%</b> del padron ya presento ficha</span>
+                    </div>
+                    <div class="donut danger-donut" aria-label="@($"{PorcentajeSinFicha():0}% sin ficha medica")">
+                        <svg viewBox="0 0 42 42" aria-hidden="true">
+                            <circle class="donut-track" cx="21" cy="21" r="16" pathLength="100" />
+                            <circle class="donut-fill" cx="21" cy="21" r="16" pathLength="100" stroke-dasharray="@($"{PorcentajeSinFicha().ToString("0.##", CultureInfo.InvariantCulture)} 100")" />
+                        </svg>
+                        <span>@PorcentajeSinFicha().ToString("0")%</span>
+                    </div>
+                </div>
+
+                @if (alumnosSinFicha.Any())
+                {
+                    <div class="alert-chip-list">
+                        @foreach (var nombre in AlumnosSinFichaVisibles())
+                        {
+                            <span>@nombre</span>
+                        }
+                    </div>
+
+                    @if (alumnosSinFicha.Count > 5)
+                    {
+                        <button type="button" class="alert-action" @onclick="ToggleAlumnosSinFicha">
+                            @(mostrarTodosSinFicha
+                                ? "Mostrar menos"
+                                : $"Ver los {alumnosSinFicha.Count} alumnos pendientes")
+                            <span aria-hidden="true">→</span>
+                        </button>
+                    }
+                }
+                else
+                {
+                    <div class="empty-panel success-panel">Todas las fichas medicas estan cargadas.</div>
+                }
+            </article>
+        </section>
+
+        <section class="bottom-metrics-grid ui-reveal" style="--reveal-delay: 230ms;" aria-label="Indicadores secundarios">
+            <article class="mini-metric danger-mini">
+                <span class="mini-icon">$</span>
+                <div>
+                    <span>Meses pendientes del período</span>
+                    <strong>@cuotasPendientes</strong>
+                    <p>Sin estimar importes a cobrar</p>
+                </div>
+                <svg class="sparkline danger-line" viewBox="0 0 120 42" fill="none" aria-hidden="true">
+                    <path d="M4 32 16 35 25 24 35 30 45 15 57 24 68 22 78 29 91 12 102 20 116 6" />
+                </svg>
+            </article>
+
+            <article class="mini-metric purple-mini">
+                <span class="mini-icon trend-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m5 15 5-5 4 4 5-7m0 0h-5m5 0v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </span>
+                <div>
+                    <span>Cuota promedio</span>
+                    <strong>@FormatearMoneda(valorCuotaReferencia)</strong>
+                    <p>De pagos registrados, sin inferir tarifas</p>
+                </div>
+                <svg class="sparkline purple-line" viewBox="0 0 120 42" fill="none" aria-hidden="true">
+                    <path d="M4 31 14 25 24 33 33 17 45 23 55 12 66 26 76 22 86 25 97 13 106 20 116 8" />
+                </svg>
+            </article>
+
+            <article class="mini-metric success-mini">
+                <div class="mini-donut">
+                    <svg viewBox="0 0 42 42" aria-hidden="true">
+                        <circle class="donut-track" cx="21" cy="21" r="16" pathLength="100" />
+                        <circle class="donut-fill" cx="21" cy="21" r="16" pathLength="100" stroke-dasharray="@($"{ClampPercent(porcentajeCobrado).ToString("0.##", CultureInfo.InvariantCulture)} 100")" />
+                    </svg>
+                </div>
+                <div>
+                    <span>Alumnos con el mes cubierto</span>
+                    <strong class="js-module-counter" data-count-value="@ClampPercent(porcentajeCobrado).ToString(CultureInfo.InvariantCulture)" data-count-type="percent" data-animate-key="inicio-cobro-pct">@ClampPercent(porcentajeCobrado).ToString("0")%</strong>
+                    <p>Incluye becas, excluye anulaciones</p>
+                </div>
+                <svg class="sparkline success-line" viewBox="0 0 120 42" fill="none" aria-hidden="true">
+                    <path d="M4 33 14 20 24 25 34 12 45 22 55 15 66 24 78 13 88 18 99 9 108 16 116 11" />
+                </svg>
+            </article>
+
+            <article class="mini-metric blue-mini">
+                <span class="mini-icon doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                        <path d="M14 3v5h4M8.5 14l2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </span>
+                <div>
+                    <span>Alumnos con ficha</span>
+                    <strong class="js-module-counter" data-count-value="@ClampPercent(porcentajeConFicha).ToString(CultureInfo.InvariantCulture)" data-count-type="percent" data-animate-key="inicio-ficha-pct">@ClampPercent(porcentajeConFicha).ToString("0")%</strong>
+                    <p>Con ficha medica</p>
+                </div>
+                <svg class="sparkline blue-line" viewBox="0 0 120 42" fill="none" aria-hidden="true">
+                    <path d="M4 29 14 20 25 24 36 18 47 27 58 16 68 22 79 14 90 25 101 15 111 18 116 7" />
+                </svg>
+            </article>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly List<AlumnoDto> alumnos = new();
+    private readonly List<CuotaDto> cuotas = new();
+    private readonly List<ExamenDto> examenes = new();
+
+    private bool cargando = true;
+    private bool mostrarTodosSinFicha;
+    private bool mostrarMontos = true;
+    private string mensajeError = string.Empty;
+
+    private List<CuotaDto> cuotasDelMes = new();
+    private List<DashboardActivityItem> actividadReciente = new();
+    private List<string> alumnosSinFicha = new();
+
+    private int cuotasPendientes;
+    private int examenesProximos;
+    private decimal totalCobradoMes;
+    private decimal valorCuotaReferencia;
+    private decimal porcentajeCobrado;
+    private decimal porcentajeConFicha;
+    private decimal totalActividadReciente;
+    private string actividadRecienteDescripcion = "Todavia no hay cuotas cobradas registradas.";
+    private string mesActualLabel = string.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await CargarInicialAsync();
+        StateHasChanged();
+    }
+
+    private async Task CargarInicialAsync()
+    {
+        cargando = true;
+        mensajeError = string.Empty;
+        mesActualLabel = DateTime.Today.ToString("MMMM yyyy", new CultureInfo("es-AR"));
+
+        var alumnosData = await AlumnoService.GetAlumnosAsync();
+        var cuotasData = await CuotaService.GetCuotasAsync();
+        var examenesData = await ExamenService.GetExamenesAsync();
+
+        alumnos.Clear();
+        alumnos.AddRange(alumnosData);
+
+        cuotas.Clear();
+        cuotas.AddRange(cuotasData.Where(c => c.Estado == "active"));
+
+        examenes.Clear();
+        examenes.AddRange(examenesData);
+
+        var errores = new[]
+        {
+            AlumnoService.LastError,
+            CuotaService.LastError,
+            ExamenService.LastError
+        }
+        .Where(error => !string.IsNullOrWhiteSpace(error))
+        .Distinct()
+        .ToList();
+
+        if (errores.Any())
+        {
+            mensajeError = string.Join(" ", errores);
+        }
+
+        ConstruirDashboard();
+        cargando = false;
+    }
+
+    private void ConstruirDashboard()
+    {
+        var hoy = DateTime.Today;
+        var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
+        var inicioMesSiguiente = inicioMes.AddMonths(1);
+
+        cuotasDelMes = cuotas
+            .Where(c => c.PeriodoAnio == hoy.Year && c.PeriodoMes == hoy.Month)
+            .ToList();
+
+        totalCobradoMes = cuotasDelMes.Sum(c => c.Monto);
+        examenesProximos = examenes.Count(e => e.FechaExamen.HasValue && e.FechaExamen.Value.Date >= hoy);
+
+        var alumnosConCuotaMes = cuotasDelMes.Select(c => c.AlumnoClubId).ToHashSet();
+
+        cuotasPendientes = alumnos.Count(a => a.FechaRegistro.Date < inicioMesSiguiente && !alumnosConCuotaMes.Contains(a.Id));
+
+        valorCuotaReferencia = cuotasDelMes.Any()
+            ? cuotasDelMes.Average(c => c.Monto)
+            : cuotas.OrderByDescending(c => c.Fecha).Take(10).Select(c => c.Monto).DefaultIfEmpty(0m).Average();
+
+        porcentajeCobrado = alumnos.Count == 0
+            ? 0
+            : Math.Round((alumnosConCuotaMes.Count / (decimal)alumnos.Count) * 100m, 1);
+
+        alumnosSinFicha = alumnos
+            .Where(a => !EsAfirmativo(a.FichaMedica))
+            .Select(a => a.NombreApellido.Trim())
+            .Where(nombre => !string.IsNullOrWhiteSpace(nombre))
+            .OrderBy(nombre => nombre)
+            .ToList();
+
+        porcentajeConFicha = alumnos.Count == 0
+            ? 0
+            : Math.Round(((alumnos.Count - alumnosSinFicha.Count) / (decimal)alumnos.Count) * 100m, 1);
+
+        actividadReciente = ConstruirActividadReciente(hoy);
+        totalActividadReciente = actividadReciente.Sum(item => item.Monto);
+        actividadRecienteDescripcion = ConstruirDescripcionActividadReciente();
+    }
+
+    private List<DashboardActivityItem> ConstruirActividadReciente(DateTime hoy)
+    {
+        var ultimoDiaConCobros = cuotas
+            .Where(c => c.Fecha != default)
+            .Select(c => c.Fecha.Date)
+            .DefaultIfEmpty()
+            .Max();
+
+        if (ultimoDiaConCobros == default)
+        {
+            return new();
+        }
+
+        return cuotas
+            .Where(c => c.Fecha.Date == ultimoDiaConCobros)
+            .OrderByDescending(c => c.Id)
+            .ThenBy(c => c.NombreApellido)
+            .Select(c => new DashboardActivityItem(
+                c.Fecha.Date,
+                $"<strong>{System.Net.WebUtility.HtmlEncode(c.NombreApellido)}</strong>",
+                FormatearMedioPago(c.MedioPago),
+                c.Monto))
+            .Select(a => a with { TiempoRelativo = FormatearTiempoRelativo(hoy, a.Fecha) })
+            .ToList();
+    }
+
+    private string ConstruirDescripcionActividadReciente()
+    {
+        if (!actividadReciente.Any())
+        {
+            return "Todavia no hay cuotas cobradas registradas.";
+        }
+
+        var fechaCierre = actividadReciente[0].Fecha.Date;
+        var etiquetaFecha = fechaCierre == DateTime.Today
+            ? "del dia de hoy"
+            : $"del {fechaCierre:dd/MM/yyyy}";
+
+        return $"{actividadReciente.Count} cuota{(actividadReciente.Count == 1 ? string.Empty : "s")} cobradas {etiquetaFecha}.";
+    }
+
+    private void ToggleAlumnosSinFicha()
+    {
+        mostrarTodosSinFicha = !mostrarTodosSinFicha;
+    }
+
+    private void ToggleMontos()
+    {
+        mostrarMontos = !mostrarMontos;
+    }
+
+    private IEnumerable<string> AlumnosSinFichaVisibles()
+    {
+        return mostrarTodosSinFicha
+            ? alumnosSinFicha
+            : alumnosSinFicha.Take(5);
+    }
+
+    private decimal PorcentajeSinFicha()
+    {
+        return alumnos.Count == 0
+            ? 0
+            : ClampPercent(Math.Round((alumnosSinFicha.Count / (decimal)alumnos.Count) * 100m, 1));
+    }
+
+    private static decimal ClampPercent(decimal value)
+    {
+        return Math.Max(0, Math.Min(100, value));
+    }
+
+    private static bool EsAfirmativo(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            return false;
+        }
+
+        var normalizado = valor.Trim().ToLowerInvariant();
+        return normalizado is "si" or "sí";
+    }
+
+    private string FormatearMoneda(decimal monto)
+    {
+        return mostrarMontos
+            ? string.Format(new CultureInfo("es-AR"), "${0:N0}", monto)
+            : "$****";
+    }
+
+    private static string FormatearMedioPago(string? medioPago)
+    {
+        return string.IsNullOrWhiteSpace(medioPago) ? "Efectivo" : medioPago.Trim();
+    }
+
+    private static string FormatearTiempoRelativo(DateTime hoy, DateTime fecha)
+    {
+        var dias = Math.Abs((hoy.Date - fecha.Date).Days);
+
+        return dias switch
+        {
+            0 => "Hoy",
+            1 => "Ayer",
+            < 7 => $"Hace {dias} dias",
+            < 31 => $"Hace {dias / 7} sem",
+            _ => fecha.ToString("dd/MM/yyyy")
+        };
+    }
+
+    private sealed record DashboardActivityItem(DateTime Fecha, string Texto, string MedioPago, decimal Monto)
+    {
+        public string TiempoRelativo { get; init; } = string.Empty;
+    }
+}

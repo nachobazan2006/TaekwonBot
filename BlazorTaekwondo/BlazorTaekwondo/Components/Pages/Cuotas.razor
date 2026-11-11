@@ -1,0 +1,841 @@
+@page "/cuotas"
+@attribute [Authorize]
+@using BlazorTaekwondo.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using System.Net
+@using BlazorTaekwondo.Services
+@using BlazorTaekwondo.Components.Shared
+@inject TaekwonBotService Bot
+@inject BlazorTaekwondo.Services.CuotaService CuotaService
+@inject BlazorTaekwondo.Services.AlumnoService AlumnoService
+@inject IJSRuntime JS
+
+<div class="cuotas-page">
+    <div class="cuotas-grid">
+        <aside class="quota-form-card ui-reveal" style="--reveal-delay: 0ms;">
+            <header class="quota-form-header">
+                <h1>@(modoEdicion ? (correctionKind == "void" ? "Dejar sin efecto" : correctionKind == "restore" ? "Restaurar cuota" : "Editar cuota") : "Nueva cuota")</h1>
+                <p>Revisá los datos y confirmá cada operación</p>
+            </header>
+
+            <fieldset class="quota-operation-fields" disabled="@(cargando || HasPendingOperation || modoEdicion && (correctionKind is "void" or "restore"))">
+            <div class="quota-field autocomplete-group">
+                <label for="cuota-alumno">Alumno</label>
+                <div class="quota-input-shell">
+                    <input id="cuota-alumno"
+                           placeholder="Buscar alumno..."
+                           value="@busquedaAlumnoForm"
+                           @oninput="ActualizarBusquedaAlumno"
+                           @onfocus="MostrarSugerenciasAlumno" />
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m21 21-4.2-4.2M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+
+                @if (mostrarSugerenciasAlumno && alumnosFiltradosAutocomplete.Any())
+                {
+                    <div class="autocomplete-dropdown">
+                        @foreach (var item in alumnosFiltradosAutocomplete)
+                        {
+                            <button type="button" class="autocomplete-item" @onclick="() => SeleccionarAlumno(item)">
+                                @item.NombreApellido · @item.Graduacion · @item.Horario · alta @item.FechaRegistro.ToString("MM/yyyy")
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="quota-field"><label for="cuota-anio">Año del período</label><div class="quota-input-shell"><input id="cuota-anio" type="number" min="2000" max="2100" @bind="cuotaForm.PeriodoAnio" /></div></div>
+            <div class="quota-field"><label for="cuota-fecha">Fecha de cobro</label><div class="quota-input-shell"><input id="cuota-fecha" type="date" @bind="cuotaForm.Fecha" /></div></div>
+            <div class="quota-field">
+                <label for="cuota-mes">Mes del período</label>
+                <div class="quota-input-shell select-shell">
+                    <select id="cuota-mes" @bind="cuotaForm.Mes">
+                        <option value="">Seleccionar mes</option>
+                        @foreach (var mes in meses)
+                        {
+                            <option value="@mes">@mes</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="quota-field">
+                <label for="cuota-monto">Monto</label>
+                <div class="quota-input-shell money-shell">
+                    <span>$</span>
+                    <input id="cuota-monto" type="number" step="1" @bind="cuotaForm.Monto" />
+                </div>
+            </div>
+
+            <div class="quota-field">
+                <label for="cuota-medio">Medio de pago</label>
+                <div class="quota-input-shell select-shell">
+                    <select id="cuota-medio" @bind="cuotaForm.MedioPago" @bind:after="ActualizarBeca">
+                        @foreach (var medioPago in mediosPago)
+                        {
+                            <option value="@medioPago">@medioPago</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="quota-field">
+                <label for="cuota-email">Mail para recibo</label>
+                <div class="quota-input-shell">
+                    <input id="cuota-email"
+                           type="email"
+                           @bind="cuotaForm.EmailRecibo"
+                            readonly
+                           placeholder="Se completa con el email del alumno" />
+                </div>
+            </div>
+
+            <div class="quota-field">
+                <label for="cuota-clase">Clase</label>
+                <div class="quota-input-shell select-shell">
+                    <input id="cuota-clase"
+                           value="@cuotaForm.Clase"
+                           placeholder="Seleccionar clase"
+                           readonly />
+                </div>
+            </div>
+
+            </fieldset>
+            <div class="quota-actions">
+                <button id="cuota-preparar" class="quota-submit" @onclick="GuardarCuota" disabled="@(cargando || HasPendingOperation)">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 3h10v4H7V3Zm0 18v-7h10v7M5 21h14a2 2 0 0 0 2-2V8l-5-5H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    </svg>
+                    Revisar operación
+                </button>
+
+                @if (modoEdicion)
+                {
+                    <button class="quota-cancel" @onclick="CancelarEdicion" disabled="@(cargando || HasPendingOperation)">Cancelar edición</button>
+                }
+            </div>
+            @if (modoEdicion)
+            {
+                <div class="quota-field"><label for="cuota-motivo">Motivo de la corrección</label><textarea id="cuota-motivo" class="app-input" @bind="correctionReason" maxlength="300" rows="3" disabled="@(cargando || HasPendingOperation)"></textarea></div>
+            }
+            <p class="quota-local-note">Datos ficticios. Los recibos se simulan sin enviar correos. Beca cubre el período con importe cero.</p>
+            <PaymentOperationCard Operation="pendingOperation" Busy="cargando" StatusUnknown="operationUnknown" OnConfirm="ConfirmarOperacion" OnCancel="CancelarOperacion" OnCheck="ConsultarOperacion" />
+
+            @if (!string.IsNullOrEmpty(mensajeOk))
+            {
+                <div class="quota-alert ok">@mensajeOk</div>
+            }
+            @if (!string.IsNullOrEmpty(mensajeError))
+            {
+                <div class="quota-alert error">@mensajeError</div>
+            }
+        </aside>
+
+        <section class="quota-table-card ui-reveal" style="--reveal-delay: 80ms;">
+            <div class="quota-toolbar">
+                <label class="toolbar-search">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m21 21-4.2-4.2M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    <input placeholder="Buscar alumno..."
+                           @bind="busquedaAlumnoTabla"
+                           @bind:event="oninput"
+                           @bind:after="ResetearPagina" />
+                </label>
+
+                <label class="toolbar-select">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 3v3m10-3v3M4.5 9.5h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                    <select @bind="filtroMes" @bind:after="ResetearPagina">
+                        <option value="">Filtrar mes</option>
+                        @foreach (var mes in meses)
+                        {
+                            <option value="@mes">@mes</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="toolbar-select">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 5h16l-6 7v5l-4 2v-7L4 5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                    </svg>
+                    <select @bind="filtroClase" @bind:after="ResetearPagina">
+                        <option value="">Filtrar clase</option>
+                        <option value="18:40">18:40</option>
+                        <option value="19:45">19:45</option>
+                        <option value="20:45">20:45</option>
+                    </select>
+                </label>
+
+                <button class="toolbar-button" @onclick="MostrarTodos">Mostrar todos</button>
+                <button class="toolbar-print" @onclick="Imprimir">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7v-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    </svg>
+                    Imprimir
+                </button>
+
+                <button type="button"
+                        class="quota-icon-action"
+                        @onclick="ToggleMontos"
+                        aria-pressed="@mostrarMontos"
+                        aria-label="@(mostrarMontos ? "Ocultar montos" : "Mostrar montos")"
+                        title="@(mostrarMontos ? "Ocultar montos" : "Mostrar montos")">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        @if (mostrarMontos)
+                        {
+                            <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" stroke="currentColor" stroke-width="2" />
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+                        }
+                        else
+                        {
+                            <path d="M3 3l18 18M10.6 10.7a3 3 0 0 0 4 4M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a18.2 18.2 0 0 1-3.2 4.2M6.5 6.6C3.9 8.4 2 12 2 12a18.7 18.7 0 0 0 5.3 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        }
+                    </svg>
+                </button>
+            </div>
+
+            <div class="quota-summary-grid">
+                <article class="summary-card summary-red">
+                    <div>
+                        <span>Total cuotas</span>
+                        <strong class="js-module-counter" data-count-value="@cuotasFiltradasLista.Count" data-count-type="number" data-animate-key="cuotas-total">@cuotasFiltradasLista.Count</strong>
+                        <p>Este mes</p>
+                    </div>
+                    <span class="summary-icon">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                            <path d="M14 3v5h4M9 14h6M9 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                </article>
+
+                <article class="summary-card summary-blue">
+                    <div>
+                        <span>Total acumulado</span>
+                        <strong>@FormatearMonto(cuotasFiltradasLista.Where(x => x.Estado == "active").Sum(x => x.Monto))</strong>
+                        <p>Cobrado este mes</p>
+                    </div>
+                    <span class="summary-icon">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M5 7.5h13a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M16 13h5v4h-5a2 2 0 1 1 0-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </article>
+
+                <article class="summary-card summary-amber">
+                    <div>
+                        <span>Pendientes</span>
+                        <strong class="js-module-counter" data-count-value="@cuotasPendientesRecibo" data-count-type="number" data-animate-key="cuotas-pendientes">@cuotasPendientesRecibo</strong>
+                        <p>Cuotas sin enviar recibo</p>
+                    </div>
+                    <span class="summary-icon">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" />
+                            <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </article>
+            </div>
+
+            <div class="quota-table-wrap">
+                @if (cargando)
+                {
+                    <div class="table-state">Cargando cuotas...</div>
+                }
+                else
+                {
+                    <table class="quota-table">
+                        <thead>
+                            <tr>
+                                <th>Alumno</th>
+                                <th>Mes</th>
+                                <th>Monto</th>
+                                <th>Medio de pago</th>
+                                <th>Clase</th>
+                                <th>Estado</th>
+                                <th>Recibo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cuota in cuotasPagina)
+                            {
+                                <tr @key="cuota.Id" class="@(cuotaSeleccionada?.Id == cuota.Id ? "selected-row" : "")">
+                                    <td>@cuota.NombreApellido</td>
+                                    <td>@cuota.Mes @cuota.PeriodoAnio</td>
+                                    <td>@FormatearMonto(cuota.Monto)</td>
+                                    <td>@FormatearMedioPago(cuota.MedioPago)</td>
+                                    <td>@cuota.Clase</td>
+                                    <td>
+                                        <span class="status-pill @(cuota.Estado == "active" ? "sent" : "pending")">
+                                            @(cuota.Estado == "active" ? "Vigente" : "Sin efecto")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (cuota.FechaEnvioRecibo.HasValue)
+                                        {
+                                            <span class="receipt-date">@cuota.FechaEnvioRecibo.Value.ToLocalTime().ToString("dd/MM HH:mm")</span>
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(cuota.ErrorEnvioRecibo))
+                                        {
+                                            <span class="receipt-error" title="@cuota.ErrorEnvioRecibo">Con error</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="receipt-date">Sin enviar</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="row-actions">
+                                            <button class="action-btn receipt"
+                                                    @onclick="() => EnviarRecibo(cuota)"
+                                                    disabled="@cargando">
+                                                @(cuota.ReciboEnviado ? "Reenviar recibo" : "Enviar recibo")
+                                            </button>
+                                            <button class="action-btn edit" @onclick="() => EditarCuota(cuota)" disabled="@(cargando || HasPendingOperation || cuota.Estado != "active")">Editar</button>
+                                            <button class="action-btn delete" @onclick="() => EliminarCuota(cuota.Id)" disabled="@(cargando || HasPendingOperation)">@(cuota.Estado == "voided" ? "Restaurar" : "Dejar sin efecto")</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+
+                            @if (!cuotasFiltradasLista.Any())
+                            {
+                                <tr>
+                                    <td colspan="8" class="table-state">No se encontraron cuotas.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <footer class="quota-pagination">
+                <span>Mostrando @RangoDesde a @RangoHasta de @cuotasFiltradasLista.Count cuotas</span>
+
+                <div class="pager">
+                    <button @onclick="PaginaAnterior" disabled="@(paginaActual <= 1)">
+                        <span aria-hidden="true">‹</span>
+                        Anterior
+                    </button>
+
+                    @foreach (var pagina in PaginasVisibles())
+                    {
+                        if (pagina is null)
+                        {
+                            <span class="pager-ellipsis">...</span>
+                        }
+                        else
+                        {
+                            <button class="@(pagina == paginaActual ? "active" : "")" @onclick="() => IrAPagina(pagina.Value)">
+                                @pagina
+                            </button>
+                        }
+                    }
+
+                    <button @onclick="PaginaSiguiente" disabled="@(paginaActual >= totalPaginas)">
+                        Siguiente
+                        <span aria-hidden="true">›</span>
+                    </button>
+                </div>
+
+                <label class="page-size">
+                    <select @bind="cantidadPorPagina" @bind:after="ResetearPagina">
+                        <option value="10">10 por pagina</option>
+                        <option value="20">20 por pagina</option>
+                        <option value="50">50 por pagina</option>
+                    </select>
+                </label>
+            </footer>
+        </section>
+    </div>
+</div>
+
+@code {
+    private OperationView? pendingOperation;
+    private bool operationUnknown, operationFocus;
+    private string correctionReason = "", correctionKind = "edit";
+    private bool HasPendingOperation => pendingOperation?.Status == "prepared" && pendingOperation.ExpiresAt.ToUniversalTime() > DateTime.UtcNow;
+
+    private const int MaxSugerenciasAlumno = 8;
+
+    private List<CuotaDto> cuotas = new();
+    private CuotaDto cuotaForm = new();
+    private CuotaDto? cuotaSeleccionada;
+    private bool modoEdicion;
+
+    private string busquedaAlumnoForm = string.Empty;
+    private bool mostrarSugerenciasAlumno;
+    private List<string> alumnosDisponibles = new();
+    private List<AlumnoDto> alumnosRegistrados = new();
+
+    private string busquedaAlumnoTabla = string.Empty;
+    private string filtroMes = string.Empty;
+    private string filtroClase = string.Empty;
+
+    private bool cargando;
+    private string mensajeError = string.Empty;
+    private string mensajeOk = string.Empty;
+    private bool mostrarMontos = true;
+    private int paginaActual = 1;
+    private int cantidadPorPagina = 10;
+
+    private readonly List<string> meses = new()
+    {
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    };
+
+    private readonly List<string> mediosPago = new()
+    {
+        "Efectivo",
+        "Transferencia", "Beca"
+    };
+
+    private IEnumerable<AlumnoDto> alumnosFiltradosAutocomplete => alumnosRegistrados
+        .Where(a => string.IsNullOrWhiteSpace(busquedaAlumnoForm) || a.NombreApellido.Contains(busquedaAlumnoForm, StringComparison.OrdinalIgnoreCase))
+        .Take(MaxSugerenciasAlumno);
+
+    private List<CuotaDto> cuotasFiltradasLista => cuotas
+        .Where(c =>
+            (string.IsNullOrWhiteSpace(busquedaAlumnoTabla) || c.NombreApellido.Contains(busquedaAlumnoTabla, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(filtroMes) || c.Mes == filtroMes) &&
+            (string.IsNullOrWhiteSpace(filtroClase) || c.Clase == filtroClase))
+        .OrderByDescending(c => c.Fecha)
+        .ThenBy(c => c.NombreApellido)
+        .ToList();
+
+    private int totalPaginas => Math.Max(1, (int)Math.Ceiling(cuotasFiltradasLista.Count / (double)cantidadPorPagina));
+
+    private List<CuotaDto> cuotasPagina => cuotasFiltradasLista
+        .Skip((PaginaNormalizada - 1) * cantidadPorPagina)
+        .Take(cantidadPorPagina)
+        .ToList();
+
+    private int PaginaNormalizada => Math.Min(Math.Max(1, paginaActual), totalPaginas);
+
+    private int cuotasPendientesRecibo => cuotasFiltradasLista.Count(c => !c.ReciboEnviado);
+
+    private int RangoDesde => cuotasFiltradasLista.Count == 0 ? 0 : ((PaginaNormalizada - 1) * cantidadPorPagina) + 1;
+
+    private int RangoHasta => Math.Min(PaginaNormalizada * cantidadPorPagina, cuotasFiltradasLista.Count);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) { await CargarInicialAsync(); StateHasChanged(); }
+        if (operationFocus) { operationFocus = false; await JS.InvokeVoidAsync("TaekwonLocalApi.focus", "tb-operation-title"); }
+    }
+
+    private async Task CargarInicialAsync()
+    {
+        cargando = true;
+
+        try
+        {
+            cuotas = await CuotaService.GetCuotasAsync();
+            if (!string.IsNullOrWhiteSpace(CuotaService.LastError))
+            {
+                mensajeError = CuotaService.LastError;
+            }
+        }
+        catch
+        {
+            mensajeError = "Error al cargar las cuotas.";
+        }
+
+        try
+        {
+            alumnosRegistrados = await AlumnoService.GetAlumnosAsync();
+            if (!string.IsNullOrWhiteSpace(AlumnoService.LastError))
+            {
+                mensajeError = string.IsNullOrWhiteSpace(mensajeError)
+                    ? AlumnoService.LastError
+                    : $"{mensajeError} {AlumnoService.LastError}";
+            }
+
+            alumnosDisponibles = alumnosRegistrados
+                .Select(a => a.NombreApellido?.Trim())
+                .Where(nombre => !string.IsNullOrWhiteSpace(nombre))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(nombre => nombre)
+                .Cast<string>()
+                .ToList();
+        }
+        catch
+        {
+            mensajeError = string.IsNullOrWhiteSpace(mensajeError)
+                ? "Error al cargar los alumnos."
+                : $"{mensajeError} No se pudieron cargar los alumnos.";
+        }
+        finally
+        {
+            cargando = false;
+            LimpiarFormulario();
+        }
+    }
+
+    private void ActualizarBusquedaAlumno(ChangeEventArgs e)
+    {
+        busquedaAlumnoForm = e.Value?.ToString() ?? string.Empty;
+        cuotaForm.NombreApellido = busquedaAlumnoForm;
+        cuotaForm.AlumnoClubId = 0;
+        AsignarClaseSegunAlumno();
+        mostrarSugerenciasAlumno = alumnosFiltradosAutocomplete.Any();
+    }
+
+    private void MostrarSugerenciasAlumno(FocusEventArgs _)
+    {
+        mostrarSugerenciasAlumno = alumnosFiltradosAutocomplete.Any();
+    }
+
+    private void SeleccionarAlumno(AlumnoDto alumno)
+    {
+        busquedaAlumnoForm = alumno.NombreApellido;
+        cuotaForm.NombreApellido = alumno.NombreApellido;
+        cuotaForm.AlumnoClubId = alumno.Id;
+        AsignarClaseSegunAlumno(forzarEmail: true);
+        mostrarSugerenciasAlumno = false;
+    }
+
+    private async Task GuardarCuota()
+    {
+        if (cargando || HasPendingOperation) return;
+        mensajeError = mensajeOk = "";
+        if (cuotaForm.AlumnoClubId <= 0) { mensajeError = "Elegí un alumno de la lista de coincidencias; el nombre escrito no identifica por sí solo a la persona."; return; }
+        if (string.IsNullOrWhiteSpace(cuotaForm.Mes) || cuotaForm.PeriodoAnio is < 2000 or > 2100)
+        { mensajeError = "Indicá el año y mes que corresponde al pago."; return; }
+        if (cuotaForm.Monto < 0 || cuotaForm.Monto > int.MaxValue || cuotaForm.Monto != decimal.Truncate(cuotaForm.Monto) || cuotaForm.MedioPago != "Beca" && cuotaForm.Monto == 0)
+        { mensajeError = "Usá un importe positivo en pesos enteros. El importe cero corresponde a Beca."; return; }
+        if (modoEdicion && string.IsNullOrWhiteSpace(correctionReason))
+        { mensajeError = "Indicá el motivo de la corrección antes de revisarla."; return; }
+        cargando = true;
+        try
+        {
+            var student = await Bot.LegacyStudent(cuotaForm.AlumnoClubId);
+            var payment = modoEdicion && cuotaSeleccionada is not null ? await Bot.LegacyPayment(cuotaSeleccionada.Id) : null;
+            pendingOperation = await Bot.Prepare(new PreparePaymentRequest(modoEdicion ? correctionKind : "create",
+                student.StudentRef, payment?.PaymentRef, cuotaForm.PeriodoAnio, meses.IndexOf(cuotaForm.Mes) + 1,
+                cuotaForm.MedioPago == "Beca" ? 0 : checked((int)cuotaForm.Monto), cuotaForm.MedioPago, cuotaForm.Fecha, correctionReason));
+            operationUnknown = false;
+            operationFocus = true;
+        }
+        catch (BotApiException ex) { mensajeError = ex.Message; }
+        catch { mensajeError = "No se pudo preparar la operación. No se confirmó ningún cambio."; }
+        finally { cargando = false; }
+    }
+    private void EditarCuota(CuotaDto cuota)
+    {
+        if (cargando || HasPendingOperation) return;
+        cuotaSeleccionada = cuota;
+        modoEdicion = true;
+        correctionKind = "edit";
+        correctionReason = "";
+        mensajeError = mensajeOk = "";
+        pendingOperation = null;
+        cuotaForm = new CuotaDto
+        {
+            Id = cuota.Id, AlumnoClubId = cuota.AlumnoClubId, PeriodoAnio = cuota.PeriodoAnio, PeriodoMes = cuota.PeriodoMes,
+            Estado = cuota.Estado, Version = cuota.Version, NombreApellido = cuota.NombreApellido, Mes = cuota.Mes,
+            Fecha = cuota.Fecha, Monto = cuota.Monto, Clase = cuota.Clase, MedioPago = cuota.MedioPago,
+            EmailRecibo = cuota.EmailRecibo, ReciboEnviado = cuota.ReciboEnviado,
+            FechaEnvioRecibo = cuota.FechaEnvioRecibo, ErrorEnvioRecibo = cuota.ErrorEnvioRecibo
+        };
+        busquedaAlumnoForm = cuota.NombreApellido;
+        mostrarSugerenciasAlumno = false;
+    }
+    private void CancelarEdicion()
+    {
+        modoEdicion = false;
+        cuotaSeleccionada = null;
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+        LimpiarFormulario();
+    }
+
+    private void AsignarClaseSegunAlumno(bool forzarEmail = false)
+    {
+        var alumno = alumnosRegistrados.FirstOrDefault(a => a.Id == cuotaForm.AlumnoClubId);
+
+        cuotaForm.Clase = alumno?.Horario?.Trim() ?? string.Empty;
+
+        if (alumno is not null)
+        {
+            var gmail = alumno.Gmail?.Trim() ?? string.Empty;
+            if (forzarEmail || string.IsNullOrWhiteSpace(cuotaForm.EmailRecibo))
+            {
+                cuotaForm.EmailRecibo = gmail;
+            }
+        }
+    }
+
+    private void LimpiarFormulario()
+    {
+        cuotaForm = new CuotaDto { Fecha = DateTime.Today, PeriodoAnio = DateTime.Today.Year };
+        busquedaAlumnoForm = string.Empty;
+        mostrarSugerenciasAlumno = false;
+    }
+
+    private Task EliminarCuota(int id)
+    {
+        if (cargando || HasPendingOperation) return Task.CompletedTask;
+        var cuota = cuotas.FirstOrDefault(c => c.Id == id);
+        if (cuota is null) return Task.CompletedTask;
+        EditarCuota(cuota);
+        correctionKind = cuota.Estado == "voided" ? "restore" : "void";
+        mensajeOk = "Indicá el motivo y revisá la operación. El registro contable se conserva.";
+        return Task.CompletedTask;
+    }
+
+    private async Task ConfirmarOperacion()
+    {
+        if (cargando || operationUnknown || pendingOperation?.Status != "prepared") return;
+        cargando = true; mensajeError = "";
+        try
+        {
+            pendingOperation = await Bot.Confirm(pendingOperation.OperationRef);
+            if (pendingOperation.Status == "confirmed")
+            {
+                cuotas = await CuotaService.GetCuotasAsync();
+                CancelarEdicion();
+                mensajeOk = "Operación confirmada y auditada. No se borraron registros contables.";
+            }
+        }
+        catch (BotApiException ex) { operationUnknown = ex.StatusUnknown; mensajeError = ex.Message; }
+        catch { operationUnknown = true; mensajeError = "No llegó la respuesta. Consultá el estado antes de volver a confirmar."; }
+        finally { cargando = false; }
+    }
+
+    private async Task CancelarOperacion()
+    {
+        if (cargando || operationUnknown || pendingOperation?.Status != "prepared") return;
+        cargando = true; mensajeError = "";
+        try { pendingOperation = await Bot.Cancel(pendingOperation.OperationRef); mensajeOk = "Operación cancelada. Los pagos no cambiaron."; }
+        catch (BotApiException ex) { operationUnknown = ex.StatusUnknown; mensajeError = ex.Message; }
+        catch { operationUnknown = true; mensajeError = "No se pudo comprobar la cancelación. Consultá el estado."; }
+        finally { cargando = false; }
+    }
+
+    private async Task ConsultarOperacion()
+    {
+        if (cargando || pendingOperation is null) return;
+        cargando = true; mensajeError = "";
+        try
+        {
+            pendingOperation = await Bot.Status(pendingOperation.OperationRef);
+            operationUnknown = false;
+            if (pendingOperation.Status == "confirmed")
+            {
+                cuotas = await CuotaService.GetCuotasAsync();
+                CancelarEdicion();
+                mensajeOk = "El pago ya estaba confirmado. No se repitió la operación.";
+            }
+            else mensajeOk = pendingOperation.Status == "prepared" ? "La propuesta sigue pendiente. Podés confirmarla o cancelarla." : "Estado de la operación actualizado.";
+        }
+        catch (BotApiException ex) { mensajeError = ex.Message; }
+        catch { mensajeError = "No se pudo consultar el estado. No vuelvas a registrar el pago."; }
+        finally { cargando = false; }
+    }
+
+    private void ActualizarBeca()
+    {
+        if (cuotaForm.MedioPago == "Beca") cuotaForm.Monto = 0;
+    }
+    private async Task EnviarRecibo(CuotaDto cuota)
+    {
+        var accion = cuota.ReciboEnviado ? "reenviar" : "enviar";
+        var confirmar = await JS.InvokeAsync<bool>("confirm", $"¿{char.ToUpper(accion[0]) + accion[1..]} el recibo de {cuota.NombreApellido}?");
+        if (!confirmar) return;
+
+        cargando = true;
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+
+        try
+        {
+            var ok = await CuotaService.EnviarReciboAsync(cuota.Id);
+
+            if (ok)
+            {
+                cuotas = await CuotaService.GetCuotasAsync();
+                mensajeOk = cuota.ReciboEnviado
+                    ? "Recibo reenviado correctamente."
+                    : "Recibo enviado correctamente.";
+            }
+            else
+            {
+                mensajeError = CuotaService.LastError;
+            }
+        }
+        catch
+        {
+            mensajeError = CuotaService.LastError;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void MostrarTodos()
+    {
+        busquedaAlumnoTabla = string.Empty;
+        filtroMes = string.Empty;
+        filtroClase = string.Empty;
+        ResetearPagina();
+    }
+
+    private async Task Imprimir()
+    {
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+
+        var cuotasPrint = cuotasFiltradasLista;
+        if (!cuotasPrint.Any())
+        {
+            mensajeError = "No es posible imprimir porque no hay datos.";
+            return;
+        }
+
+        var filtros = new List<string>
+        {
+            $"<span class=\"print-pill\">Cuotas: {cuotasPrint.Count}</span>",
+            $"<span class=\"print-pill\">Total: {WebUtility.HtmlEncode($"${cuotasPrint.Sum(x => x.Monto):N2}")}</span>"
+        };
+
+        if (!string.IsNullOrWhiteSpace(filtroMes))
+        {
+            filtros.Add($"<span class=\"print-pill\">Mes: {WebUtility.HtmlEncode(filtroMes)}</span>");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtroClase))
+        {
+            filtros.Add($"<span class=\"print-pill\">Clase: {WebUtility.HtmlEncode(filtroClase)}</span>");
+        }
+
+        var filas = cuotasPrint.Select(cuota => $"""
+            <tr>
+                <td>{WebUtility.HtmlEncode(cuota.NombreApellido)}</td>
+                <td>{WebUtility.HtmlEncode(cuota.Mes)}</td>
+                <td class="amount">{WebUtility.HtmlEncode($"${cuota.Monto:N2}")}</td>
+                <td>{WebUtility.HtmlEncode(FormatearMedioPagoPrint(cuota.MedioPago))}</td>
+                <td>{WebUtility.HtmlEncode(cuota.Clase)}</td>
+                <td>{cuota.Fecha:dd/MM/yyyy}</td>
+            </tr>
+            """);
+
+        var html = $"""
+            <div class="print-shell">
+                <div class="print-header">
+                    <div>
+                        <h1 class="print-title">Listado de cuotas</h1>
+                        <p class="print-meta">Generado el {DateTime.Now:dd/MM/yyyy HH:mm}</p>
+                    </div>
+                    <div class="print-summary">
+                        {string.Join(string.Empty, filtros)}
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre y apellido</th>
+                            <th>Mes</th>
+                            <th>Monto</th>
+                            <th>Medio de pago</th>
+                            <th>Clase</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {string.Join(string.Empty, filas)}
+                    </tbody>
+                </table>
+            </div>
+            """;
+
+        try
+        {
+            await JS.InvokeVoidAsync("TkdPrint.printHtml", "Listado de cuotas", html);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo preparar la impresion: {ex.Message}";
+        }
+    }
+
+    private void ResetearPagina()
+    {
+        paginaActual = 1;
+    }
+
+    private void PaginaAnterior()
+    {
+        paginaActual = Math.Max(1, PaginaNormalizada - 1);
+    }
+
+    private void PaginaSiguiente()
+    {
+        paginaActual = Math.Min(totalPaginas, PaginaNormalizada + 1);
+    }
+
+    private void IrAPagina(int pagina)
+    {
+        paginaActual = Math.Min(Math.Max(1, pagina), totalPaginas);
+    }
+
+    private IEnumerable<int?> PaginasVisibles()
+    {
+        if (totalPaginas <= 7)
+        {
+            return Enumerable.Range(1, totalPaginas).Select<int, int?>(x => x);
+        }
+
+        var paginas = new List<int?> { 1 };
+        var inicio = Math.Max(2, PaginaNormalizada - 1);
+        var fin = Math.Min(totalPaginas - 1, PaginaNormalizada + 1);
+
+        if (inicio > 2)
+        {
+            paginas.Add(null);
+        }
+
+        for (var pagina = inicio; pagina <= fin; pagina++)
+        {
+            paginas.Add(pagina);
+        }
+
+        if (fin < totalPaginas - 1)
+        {
+            paginas.Add(null);
+        }
+
+        paginas.Add(totalPaginas);
+        return paginas;
+    }
+
+    private static string FormatearMedioPagoPrint(string? medioPago)
+    {
+        return string.IsNullOrWhiteSpace(medioPago) ? "Efectivo" : medioPago.Trim();
+    }
+
+    private static string FormatearMedioPago(string? medioPago)
+    {
+        return string.IsNullOrWhiteSpace(medioPago) ? "Efectivo" : medioPago.Trim();
+    }
+
+    private void ToggleMontos()
+    {
+        mostrarMontos = !mostrarMontos;
+    }
+
+    private string FormatearMonto(decimal monto)
+    {
+        return mostrarMontos
+            ? $"${monto:N2}"
+            : "$ ****";
+    }
+}

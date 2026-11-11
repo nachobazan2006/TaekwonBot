@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+
+<div class="app-layout @(sidebarOpen ? "sidebar-is-open" : "")">
+
+    <!-- Overlay para cerrar sidebar en mobile -->
+    @if (sidebarOpen)
+    {
+        <div class="sidebar-overlay" @onclick="CloseSidebar"></div>
+    }
+
+    <aside class="app-sidebar">
+        <NavMenu />
+    </aside>
+
+    <main class="app-main">
+        <!-- Header mobile con toggle -->
+        <header class="mobile-header">
+            <button class="hamburger-btn" @onclick="ToggleSidebar" aria-label="Menú">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <span class="mobile-logo">Villa Allende · TK</span>
+        </header>
+
+        <div class="app-content">
+            @Body
+        </div>
+    </main>
+</div>
+
+@code {
+    private bool sidebarOpen = false;
+
+    private void ToggleSidebar() => sidebarOpen = !sidebarOpen;
+    private void CloseSidebar()  => sidebarOpen = false;
+}

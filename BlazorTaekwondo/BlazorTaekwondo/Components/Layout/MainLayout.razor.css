@@ -1,0 +1,145 @@
+/* ================================================================
+   Layout principal — Responsive con sidebar slide-in en mobile
+   ================================================================ */
+
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+    background: var(--bg-page);
+    position: relative;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+
+.app-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+/* ── Contenido principal ──────────────────────────────────────── */
+
+.app-main {
+    flex: 1;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 20% 0%, rgba(255,255,255,0.95), transparent 34%),
+        linear-gradient(180deg, #fbf8f2 0%, #f5efe6 100%);
+    overflow-x: hidden;
+    min-width: 0; /* previene overflow en flex */
+}
+
+.app-content {
+    padding: 30px 30px;
+    max-width: none;
+    animation: pageReveal 0.28s var(--ease) both;
+}
+
+/* ── Mobile header (oculto en desktop) ───────────────────────── */
+
+.mobile-header {
+    display: none;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 14px var(--sp-5);
+    background: var(--fx-aurora-surface);
+    box-shadow:
+        inset 0 -1px 0 rgba(255,255,255,0.05),
+        0 8px 20px rgba(0,0,0,0.18);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+}
+
+.mobile-logo {
+    font-family: var(--font-base);
+    font-size: 0.90rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.88);
+    letter-spacing: 0.02em;
+}
+
+/* Hamburger button */
+.hamburger-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 36px;
+    height: 36px;
+    padding: 6px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+}
+
+.hamburger-btn:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+}
+
+.hamburger-btn span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: rgba(255,255,255,0.80);
+    border-radius: 2px;
+    transition: transform var(--t-base), opacity var(--t-base);
+}
+
+/* Overlay para cerrar sidebar al tocar fuera */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 99;
+    animation: fadeIn 0.2s ease both;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+
+    /* En tablet/mobile el sidebar sale del flujo y se superpone */
+    .app-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform var(--t-base);
+        z-index: 200;
+        width: 260px;
+    }
+
+    /* Sidebar abierto */
+    .app-layout.sidebar-is-open .app-sidebar {
+        transform: translateX(0);
+    }
+
+    .app-layout.sidebar-is-open .sidebar-overlay {
+        display: block;
+    }
+
+    /* Mostrar header mobile */
+    .mobile-header { display: flex; }
+
+    .app-content {
+        padding: var(--sp-5) var(--sp-5);
+    }
+}
+
+@media (max-width: 640px) {
+    .app-content {
+        padding: var(--sp-4) var(--sp-4);
+    }
+}

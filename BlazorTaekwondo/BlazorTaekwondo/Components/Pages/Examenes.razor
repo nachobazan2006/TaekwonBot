@@ -1,0 +1,581 @@
+@page "/examenes"
+@attribute [Authorize]
+@using BlazorTaekwondo.Models
+@using Microsoft.AspNetCore.Components.Web
+@using System.Net
+@inject BlazorTaekwondo.Services.ExamenService ExamenService
+@inject BlazorTaekwondo.Services.AlumnoService AlumnoService
+@inject IJSRuntime JS
+
+<div class="examenes-page">
+
+    <div class="examenes-grid">
+
+        <!-- PANEL IZQUIERDO -->
+        <section class="form-panel ui-reveal" style="--reveal-delay: 0ms;" @onclick="CerrarSugerenciasAlumno">
+            <div class="panel-header">
+                <h2>@(modoEdicion ? "Editar examen" : "Exámenes")</h2>
+                <p>Gestioná los exámenes registrados</p>
+            </div>
+
+            <div class="form-group autocomplete-group" @onclick:stopPropagation="true">
+                <label>Nombre</label>
+                <input class="app-input"
+                       placeholder="Buscar alumno..."
+                       value="@busquedaAlumnoForm"
+                       @oninput="ActualizarBusquedaAlumno"
+                       @onfocus="MostrarSugerenciasAlumno" />
+
+                @if (mostrarSugerenciasAlumno && alumnosFiltradosAutocomplete.Any())
+                {
+                    <div class="autocomplete-dropdown">
+                        @foreach (var item in alumnosFiltradosAutocomplete)
+                        {
+                            <div class="autocomplete-item"
+                                 @onclick="() => SeleccionarAlumno(item)">
+                                @item
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label>Examen</label>
+                <select class="app-input" @bind="examenForm.ExamenRendir">
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Madera</label>
+                <select class="app-input" @bind="examenForm.Madera">
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Cinturón</label>
+                <select class="app-input" @bind="examenForm.Cinturon">
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Graduación</label>
+                <input class="app-input"
+                       @bind="examenForm.Graduacion"
+                       list="cinturones-examen-sugeridos"
+                       placeholder="Ej: Punta amarilla, cinturón azul" />
+                <datalist id="cinturones-examen-sugeridos">
+                    @foreach (var graduacion in graduacionesSugeridas)
+                    {
+                        <option value="@graduacion"></option>
+                    }
+                </datalist>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha del examen</label>
+                <input class="app-input" type="date" @bind="examenForm.FechaExamen" />
+            </div>
+
+            <div class="form-group">
+                <label>Monto</label>
+                <input class="app-input" type="number" step="0.01" @bind="examenForm.Monto" />
+            </div>
+
+            <div class="form-actions">
+                <button class="btn-principal" @onclick="GuardarExamen" disabled="@cargando">
+                    @(cargando ? "Guardando..." : modoEdicion ? "Guardar cambios" : "Agregar")
+                </button>
+
+                @if (modoEdicion)
+                {
+                    <button class="btn-secundario" @onclick="CancelarEdicion">
+                        Cancelar edición
+                    </button>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(mensajeOk))
+            {
+                <div class="alert-ok">@mensajeOk</div>
+            }
+            @if (!string.IsNullOrEmpty(mensajeError))
+            {
+                <div class="alert-error">@mensajeError</div>
+            }
+        </section>
+
+        <!-- PANEL DERECHO -->
+        <section class="tabla-panel ui-reveal" style="--reveal-delay: 90ms;">
+            <div class="tabla-topbar">
+                <input class="app-input search-input"
+                       placeholder="Buscar alumno..."
+                       @bind="busquedaAlumnoTabla"
+                       @bind:event="oninput" />
+
+                <button class="btn-secundario" @onclick="MostrarTodos">
+                    Mostrar todos
+                </button>
+
+                <select class="app-input filtro-input" @bind="filtroClase">
+                    <option value="">Filtrar clase</option>
+                    <option value="Infantil">Infantil</option>
+                    <option value="Juveniles">Juveniles</option>
+                    <option value="Adultos">Adultos</option>
+                    <option value="Competencia">Competencia</option>
+                </select>
+
+                <button class="btn-oscuro" @onclick="Imprimir">
+                    Imprimir
+                </button>
+            </div>
+
+            <div class="tabla-resumen">
+                <div class="mini-card">
+                    <span>Total exámenes</span>
+                    <strong class="js-module-counter" data-count-value="@examenesFiltrados.Count()" data-count-type="number" data-animate-key="examenes-total">@examenesFiltrados.Count()</strong>
+                </div>
+                <div class="mini-card">
+                    <span>Total acumulado</span>
+                    <strong class="js-module-counter" data-count-value="@examenesFiltrados.Sum(x => x.Monto).ToString(System.Globalization.CultureInfo.InvariantCulture)" data-count-type="currency" data-animate-key="examenes-monto">$@examenesFiltrados.Sum(x => x.Monto).ToString("N2")</strong>
+                </div>
+            </div>
+
+            <div class="tabla-wrapper">
+                <table class="examenes-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                            <th>Examen</th>
+                            <th>Madera</th>
+                            <th>Cinturón</th>
+                            <th>Graduación</th>
+                            <th>Clase</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var examen in examenesFiltrados)
+                        {
+                            <tr @key="examen.Id" class="@(examenSeleccionado?.Id == examen.Id ? "fila-seleccionada" : "")">
+                                <td>@examen.NombreApellido</td>
+                                <td>@(examen.FechaExamen.HasValue ? examen.FechaExamen.Value.ToString("dd/MM/yyyy") : "—")</td>
+                                <td>$@examen.Monto.ToString("N2")</td>
+                                <td>@examen.ExamenRendir</td>
+                                <td>@examen.Madera</td>
+                                <td>@MostrarSiNo(examen.Cinturon)</td>
+                                <td>@MostrarGraduacion(examen)</td>
+                                <td>@examen.Clase</td>
+                                <td>
+                                    <div class="acciones-tabla">
+                                        <button class="btn-tabla editar" @onclick="() => EditarExamen(examen)">
+                                            Editar
+                                        </button>
+                                        <button class="btn-tabla borrar" @onclick="() => EliminarExamen(examen.Id)">
+                                            Borrar
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+
+                        @if (!examenesFiltrados.Any())
+                        {
+                            <tr>
+                                <td colspan="9" class="sin-resultados">
+                                    No se encontraron exámenes.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+@code {
+    private List<ExamenDto> examenes = new();
+    private ExamenDto examenForm = new();
+    private ExamenDto? examenSeleccionado;
+    private bool modoEdicion;
+
+    private string busquedaAlumnoForm = string.Empty;
+    private bool mostrarSugerenciasAlumno;
+    private List<string> alumnosDisponibles = new();
+    private List<AlumnoDto> alumnosRegistrados = new();
+
+    private string busquedaAlumnoTabla = string.Empty;
+    private string filtroClase = string.Empty;
+
+    private bool cargando;
+    private string mensajeError = string.Empty;
+    private string mensajeOk = string.Empty;
+
+    private const int MaxSugerenciasAlumno = 8;
+
+    private IEnumerable<string> alumnosFiltradosAutocomplete => alumnosDisponibles
+        .Where(a => string.IsNullOrWhiteSpace(busquedaAlumnoForm) ||
+                    a.Contains(busquedaAlumnoForm, StringComparison.OrdinalIgnoreCase))
+        .Take(MaxSugerenciasAlumno);
+
+    private List<string> graduacionesSugeridas => alumnosRegistrados
+        .Select(a => a.Graduacion?.Trim())
+        .Concat(examenes.Select(e => e.Graduacion?.Trim()))
+        .Concat(examenes
+            .Where(e => !EsSiNo(e.Cinturon))
+            .Select(e => e.Cinturon?.Trim()))
+        .Where(c => !string.IsNullOrWhiteSpace(c))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(c => c)
+        .Cast<string>()
+        .ToList();
+
+    private IEnumerable<ExamenDto> examenesFiltrados => examenes
+        .Where(e =>
+            (string.IsNullOrWhiteSpace(busquedaAlumnoTabla) ||
+             e.NombreApellido.Contains(busquedaAlumnoTabla, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(filtroClase) || e.Clase == filtroClase));
+
+    private static bool EsSiNo(string? value) =>
+        string.Equals(value?.Trim(), "Sí", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value?.Trim(), "Si", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value?.Trim(), "No", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizarSiNo(string? value) =>
+        string.Equals(value?.Trim(), "Sí", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value?.Trim(), "Si", StringComparison.OrdinalIgnoreCase)
+            ? "Sí"
+            : "No";
+
+    private static string MostrarSiNo(string? value) => NormalizarSiNo(value);
+
+    private static string MostrarGraduacion(ExamenDto examen)
+    {
+        if (!string.IsNullOrWhiteSpace(examen.Graduacion))
+            return examen.Graduacion.Trim();
+
+        return !EsSiNo(examen.Cinturon) && !string.IsNullOrWhiteSpace(examen.Cinturon)
+            ? examen.Cinturon.Trim()
+            : "-";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await CargarInicialAsync();
+        StateHasChanged();
+    }
+
+    private async Task CargarInicialAsync()
+    {
+        cargando = true;
+
+        try
+        {
+            examenes = await ExamenService.GetExamenesAsync();
+            if (!string.IsNullOrWhiteSpace(ExamenService.LastError))
+            {
+                mensajeError = ExamenService.LastError;
+            }
+        }
+        catch
+        {
+            mensajeError = "Error al cargar los exámenes.";
+        }
+
+        try
+        {
+            alumnosRegistrados = await AlumnoService.GetAlumnosAsync();
+            if (!string.IsNullOrWhiteSpace(AlumnoService.LastError))
+            {
+                mensajeError = string.IsNullOrWhiteSpace(mensajeError)
+                    ? AlumnoService.LastError
+                    : $"{mensajeError} {AlumnoService.LastError}";
+            }
+
+            alumnosDisponibles = alumnosRegistrados
+                .Select(a => a.NombreApellido?.Trim())
+                .Where(nombre => !string.IsNullOrWhiteSpace(nombre))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(nombre => nombre)
+                .Cast<string>()
+                .ToList();
+        }
+        catch
+        {
+            mensajeError = string.IsNullOrWhiteSpace(mensajeError)
+                ? "Error al cargar los alumnos."
+                : $"{mensajeError} No se pudieron cargar los alumnos.";
+        }
+        finally
+        {
+            cargando = false;
+            LimpiarFormulario();
+        }
+    }
+
+    private void MostrarSugerenciasAlumno(FocusEventArgs _)
+    {
+        mostrarSugerenciasAlumno = alumnosFiltradosAutocomplete.Any();
+    }
+
+    private void ActualizarBusquedaAlumno(ChangeEventArgs e)
+    {
+        busquedaAlumnoForm = e.Value?.ToString() ?? string.Empty;
+        examenForm.NombreApellido = busquedaAlumnoForm;
+        AsignarDatosSegunAlumno(completarCinturon: false);
+        mostrarSugerenciasAlumno = alumnosFiltradosAutocomplete.Any();
+    }
+
+    private void SeleccionarAlumno(string alumno)
+    {
+        busquedaAlumnoForm = alumno;
+        examenForm.NombreApellido = alumno;
+        AsignarDatosSegunAlumno(completarCinturon: true);
+        mostrarSugerenciasAlumno = false;
+    }
+
+    private void CerrarSugerenciasAlumno()
+    {
+        mostrarSugerenciasAlumno = false;
+    }
+
+    private void AsignarDatosSegunAlumno(bool completarCinturon)
+    {
+        var alumno = alumnosRegistrados.FirstOrDefault(a =>
+            string.Equals(a.NombreApellido?.Trim(), busquedaAlumnoForm.Trim(),
+                StringComparison.OrdinalIgnoreCase));
+
+        examenForm.Clase = alumno?.Horario switch
+        {
+            "18:40" => "Infantil",
+            "19:45" => "Juveniles",
+            "20:45" => "Adultos",
+            _ => string.Empty
+        };
+
+        if (completarCinturon && !string.IsNullOrWhiteSpace(alumno?.Graduacion))
+        {
+            examenForm.Graduacion = alumno.Graduacion.Trim();
+        }
+    }
+
+    private async Task GuardarExamen()
+    {
+        examenForm.NombreApellido = busquedaAlumnoForm.Trim();
+        examenForm.ExamenRendir = string.IsNullOrWhiteSpace(examenForm.ExamenRendir) ? "No" : examenForm.ExamenRendir;
+        examenForm.Madera = string.IsNullOrWhiteSpace(examenForm.Madera) ? "No" : examenForm.Madera;
+        examenForm.Cinturon = NormalizarSiNo(examenForm.Cinturon);
+        examenForm.Graduacion = examenForm.Graduacion?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(examenForm.NombreApellido) || examenForm.Monto <= 0)
+        {
+            mensajeError = "Completá el nombre y el monto.";
+            mensajeOk = string.Empty;
+            return;
+        }
+
+        mensajeError = string.Empty;
+        cargando = true;
+
+        try
+        {
+            var ok = modoEdicion && examenSeleccionado is not null
+                ? await ExamenService.EditarExamenAsync(examenSeleccionado.Id, examenForm)
+                : await ExamenService.AgregarExamenAsync(examenForm);
+
+            if (ok)
+            {
+                var mensaje = modoEdicion ? "Examen actualizado correctamente." : "Examen registrado correctamente.";
+                examenes = await ExamenService.GetExamenesAsync();
+                CancelarEdicion();
+                mensajeOk = mensaje;
+            }
+            else
+            {
+                mensajeError = ExamenService.LastError;
+            }
+        }
+        catch
+        {
+            mensajeError = ExamenService.LastError;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void EditarExamen(ExamenDto examen)
+    {
+        examenSeleccionado = examen;
+        modoEdicion = true;
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+
+        examenForm = new ExamenDto
+        {
+            Id = examen.Id,
+            NombreApellido = examen.NombreApellido,
+            ExamenRendir = examen.ExamenRendir,
+            Madera = examen.Madera,
+            Cinturon = NormalizarSiNo(examen.Cinturon),
+            Graduacion = MostrarGraduacion(examen) == "-" ? string.Empty : MostrarGraduacion(examen),
+            Monto = examen.Monto,
+            Clase = examen.Clase,
+            FechaExamen = examen.FechaExamen
+        };
+
+        busquedaAlumnoForm = examen.NombreApellido;
+    }
+
+    private void CancelarEdicion()
+    {
+        modoEdicion = false;
+        examenSeleccionado = null;
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+        LimpiarFormulario();
+    }
+
+    private void LimpiarFormulario()
+    {
+        examenForm = new ExamenDto
+        {
+            ExamenRendir = "No",
+            Madera = "No",
+            Cinturon = "No"
+        };
+        busquedaAlumnoForm = string.Empty;
+        mostrarSugerenciasAlumno = false;
+    }
+
+    private async Task EliminarExamen(int id)
+    {
+        var examen = examenes.FirstOrDefault(e => e.Id == id);
+        var confirmar = await JS.InvokeAsync<bool>("confirm", $"¿Eliminar el examen de {examen?.NombreApellido}?");
+        if (!confirmar) return;
+
+        cargando = true;
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+
+        try
+        {
+            var ok = await ExamenService.EliminarExamenAsync(id);
+
+            if (ok)
+            {
+                examenes = await ExamenService.GetExamenesAsync();
+                if (examenSeleccionado?.Id == id)
+                    CancelarEdicion();
+                mensajeOk = "Examen eliminado correctamente.";
+            }
+            else
+            {
+                mensajeError = ExamenService.LastError;
+            }
+        }
+        catch
+        {
+            mensajeError = ExamenService.LastError;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void MostrarTodos()
+    {
+        busquedaAlumnoTabla = string.Empty;
+        filtroClase = string.Empty;
+    }
+
+    private async Task Imprimir()
+    {
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+
+        var examenesPrint = examenesFiltrados.ToList();
+        if (!examenesPrint.Any())
+        {
+            mensajeError = "No es posible imprimir porque no hay datos.";
+            return;
+        }
+
+        var filtros = new List<string>
+        {
+            $"<span class=\"print-pill\">Exámenes: {examenesPrint.Count}</span>",
+            $"<span class=\"print-pill\">Total: {WebUtility.HtmlEncode($"${examenesPrint.Sum(x => x.Monto):N2}")}</span>"
+        };
+
+        if (!string.IsNullOrWhiteSpace(filtroClase))
+        {
+            filtros.Add($"<span class=\"print-pill\">Clase: {WebUtility.HtmlEncode(filtroClase)}</span>");
+        }
+
+        var filas = examenesPrint.Select(examen => $"""
+            <tr>
+                <td>{WebUtility.HtmlEncode(examen.NombreApellido)}</td>
+                <td>{(examen.FechaExamen.HasValue ? examen.FechaExamen.Value.ToString("dd/MM/yyyy") : "—")}</td>
+                <td class="amount">{WebUtility.HtmlEncode($"${examen.Monto:N2}")}</td>
+                <td>{WebUtility.HtmlEncode(examen.ExamenRendir)}</td>
+                <td>{WebUtility.HtmlEncode(examen.Madera)}</td>
+                <td>{WebUtility.HtmlEncode(MostrarSiNo(examen.Cinturon))}</td>
+                <td>{WebUtility.HtmlEncode(MostrarGraduacion(examen))}</td>
+                <td>{WebUtility.HtmlEncode(examen.Clase)}</td>
+            </tr>
+            """);
+
+        var html = $"""
+            <div class="print-shell">
+                <div class="print-header">
+                    <div>
+                        <h1 class="print-title">Listado de exámenes</h1>
+                        <p class="print-meta">Generado el {DateTime.Now:dd/MM/yyyy HH:mm}</p>
+                    </div>
+                    <div class="print-summary">
+                        {string.Join(string.Empty, filtros)}
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                            <th>Examen</th>
+                            <th>Madera</th>
+                            <th>Cinturón</th>
+                            <th>Graduación</th>
+                            <th>Clase</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {string.Join(string.Empty, filas)}
+                    </tbody>
+                </table>
+            </div>
+            """;
+
+        try
+        {
+            await JS.InvokeVoidAsync("TkdPrint.printHtml", "Listado de exámenes", html);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo preparar la impresión: {ex.Message}";
+        }
+    }
+}

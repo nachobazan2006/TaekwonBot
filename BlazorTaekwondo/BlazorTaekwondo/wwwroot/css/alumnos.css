@@ -1,0 +1,470 @@
+/* ================================================================
+   Alumnos — módulo con conexión al backend
+   Usa tokens.css + shared.css
+   ================================================================ */
+
+.alumnos-page {
+    animation: pageReveal 0.30s var(--ease) both;
+}
+
+.alumnos-page .ui-reveal-ready {
+    opacity: 0;
+    transform: translateY(20px) scale(0.985);
+    transition:
+        opacity 0.48s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms),
+        transform 0.48s cubic-bezier(.22,1,.36,1) var(--reveal-delay, 0ms),
+        box-shadow var(--t-base);
+    will-change: opacity, transform;
+}
+
+.alumnos-page .ui-reveal-ready.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* ─── Layout ────────────────────────────────────────────────────── */
+
+.page-container {
+    display: grid;
+    grid-template-columns: 310px 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+}
+
+.alumnos-form-panel {
+    position: sticky;
+    top: var(--sp-6);
+}
+
+/* ─── Panel formulario ─────────────────────────────────────────── */
+
+.panel-form {
+    background: var(--bg-surface);
+    border-radius: var(--r-lg);
+    padding: var(--sp-6);
+    border: 1px solid var(--border-light);
+    border-top: 2px solid var(--clr-primary); /* acento bordó en el top */
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: var(--sp-6);
+    transition: box-shadow var(--t-base);
+}
+
+.panel-form:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.form-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--sp-4);
+    letter-spacing: -0.2px;
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--border-light);
+    font-family: var(--font-base);
+}
+
+/* ─── Inputs del formulario ────────────────────────────────────── */
+
+.form-input,
+.form-select {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-input);
+    border-radius: var(--r-sm);
+    padding: 10px 13px;
+    font-size: var(--text-base);
+    font-family: var(--font-base);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+    appearance: none;
+    -webkit-appearance: none;
+    letter-spacing: 0.01em;
+}
+
+.form-input:hover, .form-select:hover {
+    border-color: var(--border-mid);
+    background: var(--bg-surface);
+}
+
+.form-input:focus, .form-select:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--clr-petrol-soft);
+    background: var(--bg-surface);
+}
+
+.form-input::placeholder { color: var(--text-muted); }
+
+.select-wrapper { position: relative; }
+
+.select-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 6px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: contain;
+    pointer-events: none;
+}
+
+/* ─── Botones formulario ───────────────────────────────────────── */
+
+.btn-primary {
+    width: 100%;
+    background: var(--fx-burgundy-surface);
+    color: var(--text-on-dark);
+    border: none;
+    border-radius: var(--r-sm);
+    padding: 11px 16px;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+    font-weight: 700;
+    margin-top: var(--sp-4);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(94,22,34,0.26), 0 12px 28px rgba(122,30,44,0.20);
+    transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+    letter-spacing: 0.02em;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--fx-burgundy-surface-strong);
+    box-shadow: 0 6px 16px rgba(94,22,34,0.30), 0 14px 32px rgba(122,30,44,0.24);
+    transform: translateY(-2px);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(94,22,34,0.26), 0 12px 28px rgba(122,30,44,0.20);
+}
+.btn-primary:disabled { opacity: 0.40; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-secondary {
+    width: 100%;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-mid);
+    border-radius: var(--r-sm);
+    padding: 10px 16px;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: var(--sp-2);
+    box-shadow: 0 1px 3px rgba(30,20,10,0.05);
+    transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(30,20,10,0.09);
+}
+
+/* ─── Panel listado ─────────────────────────────────────────────── */
+
+.panel-list {
+    background: var(--bg-surface);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5) var(--sp-6);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--t-base);
+}
+
+.panel-list:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* ─── Toolbar ───────────────────────────────────────────────────── */
+
+.list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+.search-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+    max-width: 260px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.80rem;
+    pointer-events: none;
+    color: var(--text-muted);
+}
+
+.search-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-input);
+    border-radius: var(--r-sm);
+    padding: 9px 12px 9px 30px;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+    letter-spacing: 0.01em;
+}
+
+.search-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--clr-petrol-soft);
+}
+
+.search-input::placeholder { color: var(--text-muted); }
+
+.filter-select {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-input);
+    border-radius: var(--r-sm);
+    padding: 9px 30px 9px 12px;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+    color: var(--text-primary);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: border-color var(--t-fast);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+.filter-select:focus { border-color: var(--border-focus); }
+
+.btn-outline {
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-mid);
+    border-radius: var(--r-sm);
+    padding: 9px 14px;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(30,20,10,0.05);
+    transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+    white-space: nowrap;
+}
+
+.btn-outline:hover {
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(30,20,10,0.08);
+}
+
+.print-popover-wrap {
+    position: relative;
+}
+
+.print-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(720px, calc(100vw - 48px));
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    z-index: 1000;
+}
+
+.print-panel-header {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.print-panel-header h3 {
+    margin: 0;
+    font-size: var(--text-lg);
+    color: var(--text-primary);
+}
+
+.print-panel-header p {
+    margin: 6px 0 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.print-close {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.print-panel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-4);
+}
+
+.print-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: var(--sp-4);
+    border: 1px solid var(--border-light);
+    border-radius: var(--r-md);
+    background: var(--bg-subtle);
+}
+
+.print-group-title {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.print-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+}
+
+.print-check.checked {
+    font-weight: 700;
+}
+
+.print-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+.print-select {
+    width: 100%;
+}
+
+.print-hint {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.print-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+}
+
+.print-actions .btn-secondary,
+.print-actions .btn-primary {
+    width: auto;
+    margin-top: 0;
+    min-width: 140px;
+}
+
+/* ─── Contador ──────────────────────────────────────────────────── */
+
+.list-count { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--sp-3); font-weight: 600; }
+.list-count span { color: var(--text-primary); font-weight: 700; }
+
+/* ─── Tabla alumnos ─────────────────────────────────────────────── */
+
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.alumno-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    font-family: var(--font-base);
+}
+
+.alumno-table thead tr {
+    background: var(--fx-aurora-surface);
+}
+
+.alumno-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-family: var(--font-base);
+    color: var(--text-on-dark-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.alumno-table tbody tr {
+    border-bottom: 1px solid var(--border-light);
+    transition: background var(--t-fast);
+}
+
+.alumno-table tbody tr:nth-child(even) td { background: var(--bg-subtle); }
+.alumno-table tbody tr:last-child { border-bottom: none; }
+.alumno-table tbody tr:hover td { background: rgba(158,42,43,0.04) !important; }
+
+.alumno-table td {
+    padding: 11px 15px;
+    color: var(--text-primary);
+    vertical-align: middle;
+    background: var(--bg-surface);
+}
+
+.alumno-table td:first-child { font-weight: 600; }
+
+
+/* ─── Responsive ───────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+    .page-container { grid-template-columns: 1fr; }
+    .panel-form { position: static; }
+    .list-toolbar { flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+    .page-container { gap: var(--sp-3); }
+    .panel-form, .panel-list { padding: var(--sp-4); }
+    .alumno-table th, .alumno-table td { padding: 9px 10px; }
+    .print-popover {
+        left: 0;
+        right: auto;
+        width: min(100vw - 32px, 560px);
+    }
+    .print-panel-grid { grid-template-columns: 1fr; }
+    .print-actions { flex-direction: column-reverse; }
+    .print-actions .btn-secondary,
+    .print-actions .btn-primary { width: 100%; }
+}

@@ -1,0 +1,15 @@
+@inject NavigationManager Navigation
+
+<div class="loading-state">
+    <div class="spinner"></div>
+    <span>Redirigiendo al inicio de sesion...</span>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var returnUrl = "/" + currentPath;
+        Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+    }
+}

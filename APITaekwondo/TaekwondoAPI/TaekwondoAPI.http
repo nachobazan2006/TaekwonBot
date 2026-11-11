@@ -1,0 +1,6 @@
+@TaekwondoAPI_HostAddress = http://localhost:5087
+
+GET {{TaekwondoAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

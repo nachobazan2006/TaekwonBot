@@ -1,0 +1,169 @@
+/* ================================================================
+   TAEKWONDO VILLA ALLENDE — Design Tokens v3
+   Tipografía: Century Gothic (system) → Poppins (web fallback)
+   Paleta: Bordó #9E2A2B | Petróleo #335C67 | Navy #102845
+   ================================================================ */
+
+/* Poppins como fallback web cuando Century Gothic no está disponible */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+:root {
+
+  /* ─── Tipografía ─────────────────────────────────────────────
+     Century Gothic: instalado en Windows (redondo, geométrico)
+     Futura: equivalente en macOS/iOS
+     Poppins: fallback web — lo más cercano disponible en Google Fonts
+  ─────────────────────────────────────────────────────────────── */
+  --font-base:
+    'Century Gothic',
+    'Futura',
+    'Trebuchet MS',
+    'Poppins',
+    system-ui,
+    -apple-system,
+    sans-serif;
+
+  /* Escala tipográfica */
+  --text-xs:   0.72rem;    /* 11.5px — labels, badges */
+  --text-sm:   0.8125rem;  /* 13px   — tabla, botones */
+  --text-base: 0.9375rem;  /* 15px   — body general */
+  --text-md:   1rem;       /* 16px   — inputs, listas */
+  --text-lg:   1.125rem;   /* 18px   — subtítulos */
+  --text-xl:   1.375rem;   /* 22px   — títulos de panel */
+  --text-2xl:  1.75rem;    /* 28px   — títulos de página */
+  --text-3xl:  2.25rem;    /* 36px   — valores KPI grandes */
+
+  /* ─── Paleta de marca ────────────────────────────────────────── */
+
+  --clr-primary:       #9E2A2B;
+  --clr-primary-dark:  #7d2122;
+  --clr-primary-hover: #b33031;
+  --clr-primary-soft:  rgba(158, 42, 43, 0.12);
+  --clr-primary-xsoft: rgba(158, 42, 43, 0.06);
+  --clr-burgundy:      #7A1E2C;
+  --clr-burgundy-dark: #5E1622;
+  --clr-burgundy-mid:  #8C2F45;
+  --clr-burgundy-glow: rgba(163, 58, 82, 0.34);
+  --clr-burgundy-soft: rgba(163, 58, 82, 0.14);
+  --clr-burgundy-xsoft: rgba(163, 58, 82, 0.08);
+  --fx-burgundy-surface:
+    radial-gradient(circle at 18% 18%, var(--clr-burgundy-glow), transparent 34%),
+    linear-gradient(160deg, #4A1320 0%, #6A1B2A 46%, #8C2F45 100%);
+  --fx-burgundy-surface-strong:
+    radial-gradient(circle at 16% 18%, rgba(163, 58, 82, 0.40), transparent 34%),
+    linear-gradient(160deg, #43111d 0%, #731d2d 46%, #a33a52 100%);
+  --fx-burgundy-soft:
+    linear-gradient(135deg, rgba(163, 58, 82, 0.14) 0%, rgba(122, 30, 44, 0.08) 100%);
+
+  --clr-petrol:        #335C67;
+  --clr-petrol-dark:   #264a53;
+  --clr-petrol-hover:  #3e6e7b;
+  --clr-petrol-soft:   rgba(51, 92, 103, 0.12);
+
+  --clr-navy:          #102845;
+  --clr-navy-dark:     #0b1d35;
+  --clr-navy-mid:      #16385e;
+  --clr-navy-subtle:   rgba(16, 40, 69, 0.06);
+  --clr-aurora-plum:   rgba(171, 98, 148, 0.34);
+  --clr-aurora-blue:   rgba(95, 128, 194, 0.24);
+  --clr-aurora-plum-soft: rgba(171, 98, 148, 0.14);
+  --clr-aurora-blue-soft: rgba(95, 128, 194, 0.12);
+  --fx-aurora-surface:
+    radial-gradient(circle at 18% 18%, var(--clr-aurora-plum), transparent 34%),
+    radial-gradient(circle at 82% 20%, var(--clr-aurora-blue), transparent 30%),
+    linear-gradient(160deg, #2e2145 0%, #162338 44%, #10253a 100%);
+  --fx-aurora-surface-strong:
+    radial-gradient(circle at 16% 18%, rgba(171, 98, 148, 0.40), transparent 34%),
+    radial-gradient(circle at 84% 16%, rgba(95, 128, 194, 0.28), transparent 30%),
+    linear-gradient(160deg, #35254f 0%, #1a2941 44%, #123049 100%);
+  --fx-aurora-soft:
+    linear-gradient(135deg, var(--clr-aurora-plum-soft) 0%, var(--clr-aurora-blue-soft) 100%);
+  --fx-aurora-soft-alt:
+    linear-gradient(135deg, rgba(16, 40, 69, 0.08) 0%, rgba(171, 98, 148, 0.10) 100%);
+
+  --clr-cream:         #FFF3B0;
+
+  /* ─── Superficies — sistema de 3 capas ──────────────────────── */
+
+  /* Capa 0: fondo de página — crema cálida acentuada */
+  --bg-page:           #f5ede0;
+
+  /* Capa 1: paneles / cards — blanco puro, contraste nítido */
+  --bg-surface:        #ffffff;
+  --bg-surface-hover:  #fafafa;
+
+  /* Capa 2: elementos dentro de paneles — inputs, mini-cards */
+  --bg-input:          #fcfaf8;
+  --bg-subtle:         #f4f1ec;
+
+  /* Sidebar */
+  --bg-sidebar:        #0e2236;
+  --bg-sidebar-hover:  rgba(255, 255, 255, 0.06);
+  --bg-sidebar-active: rgba(255, 255, 255, 0.11);
+
+  /* ─── Texto ──────────────────────────────────────────────────── */
+
+  --text-primary:      #1a1f2e;
+  --text-secondary:    #4a5568;
+  --text-muted:        #9aa3af;
+  --text-label:        #6b7280;
+  --text-on-dark:      #ffffff;
+  --text-on-dark-soft: rgba(255, 255, 255, 0.58);
+
+  /* ─── Bordes ─────────────────────────────────────────────────── */
+
+  --border-light:  #e8e2da;
+  --border-mid:    #d4ccc2;
+  --border-input:  #d0cab8;
+  --border-focus:  var(--clr-petrol);
+
+  /* ─── Sombras — profundidad visible pero limpia ──────────────── */
+
+  /* Panels / cards */
+  --shadow-sm:  0 1px 3px rgba(30, 20, 10, 0.05),
+                0 6px 20px rgba(30, 20, 10, 0.08);
+
+  /* Paneles destacados, hover */
+  --shadow-md:  0 2px 6px rgba(30, 20, 10, 0.06),
+                0 14px 36px rgba(30, 20, 10, 0.11);
+
+  /* Dropdowns, modales */
+  --shadow-lg:  0 4px 12px rgba(30, 20, 10, 0.08),
+                0 24px 56px rgba(30, 20, 10, 0.14);
+
+  /* Sidebar (borde derecho de profundidad) */
+  --shadow-sidebar: 4px 0 24px rgba(0, 0, 0, 0.22);
+
+  /* Botón principal */
+  --shadow-btn: 0 2px 8px rgba(158, 42, 43, 0.25),
+                0 6px 20px rgba(158, 42, 43, 0.18);
+
+  /* ─── Border-radius ──────────────────────────────────────────── */
+
+  --r-xs:   4px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   14px;
+  --r-xl:   18px;
+  --r-full: 999px;
+
+  /* ─── Espaciado ──────────────────────────────────────────────── */
+
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-7:  28px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* ─── Transiciones ───────────────────────────────────────────── */
+
+  --ease:   cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 0.13s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-base: 0.20s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-slow: 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}

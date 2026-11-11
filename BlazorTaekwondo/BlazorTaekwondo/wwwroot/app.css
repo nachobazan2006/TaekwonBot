@@ -1,0 +1,78 @@
+/* ================================================================
+   TAEKWONDO VILLA ALLENDE — Base global
+   tokens.css y shared.css se cargan antes desde App.razor
+   ================================================================ */
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-page);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* Anulamos defaults de Bootstrap que colisionan con nuestro sistema */
+a, .btn-link { color: var(--clr-petrol); }
+
+/* Validación Blazor */
+.valid.modified:not([type=checkbox]) {
+  outline: 1.5px solid #16a34a;
+  outline-offset: 1px;
+}
+
+.invalid {
+  outline: 1.5px solid var(--clr-primary);
+  outline-offset: 1px;
+}
+
+.validation-message {
+  color: var(--clr-primary);
+  font-size: var(--text-xs);
+  margin-top: 4px;
+  display: block;
+}
+
+/* Focus ring accesible para teclado */
+:focus-visible {
+  outline: 2px solid var(--clr-petrol);
+  outline-offset: 2px;
+}
+
+/* Blazor error boundary */
+.blazor-error-boundary {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--r-sm);
+  padding: var(--sp-4) var(--sp-5);
+  color: #991b1b;
+  font-size: var(--text-sm);
+  margin: var(--sp-4);
+}
+
+.blazor-error-boundary::after {
+  content: "Ocurrió un error inesperado. Recargá la página.";
+}
+
+/* Scrollbar customizada (WebKit) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-mid);
+  border-radius: var(--r-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

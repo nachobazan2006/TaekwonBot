@@ -1,0 +1,297 @@
+@page "/taekwonbot"
+@attribute [Authorize]
+@using BlazorTaekwondo.Models
+@using BlazorTaekwondo.Services
+@using BlazorTaekwondo.Components.Shared
+@using System.Globalization
+@inject TaekwonBotService Bot
+@inject IJSRuntime JS
+
+<PageTitle>TaekwonBot | Taekwondo Villa Allende</PageTitle>
+
+<div class="tb-page">
+    <header class="tb-header">
+        <div>
+            <h1>TaekwonBot<span class="tb-period">.</span></h1>
+            <p class="tb-intro">Pedí lo que necesitás sobre alumnos, cuotas y pagos. Te respondo en esta conversación.</p>
+        </div>
+        <span class="tb-practice"><span aria-hidden="true"></span>Datos de práctica</span>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div id="tb-error" class="tb-alert" role="alert">@error</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(notice))
+    {
+        <div class="tb-notice" role="status">@notice</div>
+    }
+
+    <main class="tb-conversation" aria-label="Conversación con TaekwonBot" aria-busy="@busy.ToString().ToLowerInvariant()">
+        <section class="tb-chat-panel">
+            <div class="tb-chat-heading">
+                <span>Conversación</span>
+                <button id="tb-history-clear" type="button" class="tb-text-button" disabled="@(busy || history.Count == 0)" @onclick="() => askClearHistory = true">Borrar conversación</button>
+            </div>
+            @if (askClearHistory)
+            {
+                <div class="tb-clear-confirm" role="alertdialog" aria-label="Borrar tu historial">
+                    <p>¿Borrar tu historial? Los pagos y su auditoría se conservan.</p>
+                    <button id="tb-history-clear-confirm" type="button" disabled="@busy" @onclick="ClearHistory">Sí, borrar mi historial</button>
+                    <button type="button" disabled="@busy" @onclick="() => askClearHistory = false">Conservarlo</button>
+                </div>
+            }
+
+            <div class="tb-messages" aria-live="polite" aria-relevant="additions text" role="log" aria-label="Historial de mensajes">
+                @if (history.Count == 0)
+                {
+                    <div class="tb-empty">
+                        <span class="tb-empty-mark" aria-hidden="true">VA</span>
+                        <div>
+                            <strong>Hola, soy TaekwonBot.</strong>
+                            <p>Escribime como hablarías con otra persona. Por ejemplo: “¿Cuánto debe Alex?” o “Cargale a Alex la cuota de noviembre, pagó $13.000 por transferencia.” Si voy a cambiar un pago, primero te mostraré la propuesta para que la confirmes.</p>
+                        </div>
+                    </div>
+                }
+                @foreach (var message in history)
+                {
+                    <article class="tb-message @(message.Role == "user" ? "tb-message-user" : "tb-message-assistant")">
+                        <div class="tb-message-label">
+                            @(message.Role == "user" ? "Vos" : "TaekwonBot")
+                            <time datetime="@message.CreatedAt.ToString("O")">@message.CreatedAt.ToLocalTime().ToString("HH:mm")</time>
+                        </div>
+                        <p>@message.Text</p>
+                    </article>
+                }
+                @if (busy && !string.IsNullOrWhiteSpace(pendingSubmitted))
+                {
+                    <article class="tb-message tb-message-user" aria-label="Mensaje enviado">
+                        <div class="tb-message-label">Vos</div>
+                        <p>@pendingSubmitted</p>
+                    </article>
+                }
+                @if (studentCandidates is { Count: > 0 })
+                {
+                    <section class="tb-result tb-candidates" aria-label="Alumnos coincidentes">
+                        <p>Podés responder con el nombre, el mes de alta o “el segundo”.</p>
+                        <ol>
+                            @for (var index = 0; index < studentCandidates.Count; index++)
+                            {
+                                var candidate = studentCandidates[index];
+                                var ordinal = index + 1;
+                                <li>
+                                    <button type="button" disabled="@busy" @onclick="() => ChooseCandidate(ordinal)">
+                                        <strong>@candidate.DisplayName</strong>
+                                        <span>@candidate.Graduacion · @candidate.Horario · alta @candidate.RegisteredAt.ToString("MM/yyyy")</span>
+                                    </button>
+                                </li>
+                            }
+                        </ol>
+                    </section>
+                }
+                @if (debt is not null)
+                {
+                    <section class="tb-result" aria-labelledby="tb-debt-title">
+                        <div class="tb-section-heading"><h2 id="tb-debt-title">Meses pendientes</h2><span>@debt.StudentName</span></div>
+                        <p>Desde @PeriodLabel(debt.FromYear, debt.FromMonth) hasta @PeriodLabel(debt.ToYear, debt.ToMonth). Se muestran meses sin pago, sin estimar importes.</p>
+                        @if (debt.PendingMonths.Count == 0)
+                        {
+                            <p class="tb-positive">No hay meses pendientes en este rango.</p>
+                        }
+                        else
+                        {
+                            <div class="tb-periods">
+                                @foreach (var period in debt.PendingMonths)
+                                {
+                                    <span>@PeriodLabel(period.Year, period.Month)</span>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+                @if (statistics is not null)
+                {
+                    <section class="tb-result" aria-labelledby="tb-statistics-title">
+                        <div class="tb-section-heading"><h2 id="tb-statistics-title">Estadísticas</h2><span>@PeriodLabel(statistics.Year, statistics.Month)</span></div>
+                        <dl class="tb-statistics">
+                            <div><dt>Alumnos</dt><dd>@statistics.Students</dd></div>
+                            <div><dt>Pagos vigentes</dt><dd>@statistics.Payments</dd></div>
+                            <div><dt>Recaudación</dt><dd>@Money(statistics.TotalAmount)</dd></div>
+                            <div><dt>Alumnos sin pago</dt><dd>@statistics.PendingStudents</dd></div>
+                        </dl>
+                    </section>
+                }
+                @if (payments is not null)
+                {
+                    <section class="tb-result" aria-labelledby="tb-payments-title">
+                        <div class="tb-section-heading"><h2 id="tb-payments-title">Pagos</h2></div>
+                        @if (payments.Count == 0)
+                        {
+                            <p>No hay pagos registrados.</p>
+                        }
+                        else
+                        {
+                            <div class="tb-table-scroll">
+                                <table>
+                                    <thead><tr><th>Alumno</th><th>Período</th><th>Importe</th><th>Medio</th><th>Estado</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var payment in payments)
+                                        {
+                                            <tr><td>@payment.StudentName</td><td>@PeriodLabel(payment.Year, payment.Month)</td><td>@Money(payment.Amount)</td><td>@payment.Method</td><td><span class="tb-payment-state @(payment.Status == "voided" ? "is-voided" : "")">@(payment.Status == "voided" ? "Sin efecto" : "Vigente")</span></td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </section>
+                }
+                @if (operation is not null)
+                {
+                    <PaymentOperationCard Operation="operation" Busy="busy" StatusUnknown="statusUnknown" OnConfirm="Confirm" OnCancel="Cancel" OnCheck="CheckStatus" />
+                }
+                @if (busy && initialized)
+                {
+                    <p class="tb-working" role="status">TaekwonBot está respondiendo…</p>
+                }
+            </div>
+
+            <div class="tb-composer">
+                <div class="tb-compose-line">
+                    <label class="tb-sr-only" for="tb-message">Escribí tu mensaje</label>
+                    <textarea id="tb-message" @bind="text" @bind:event="oninput" @onkeydown="MessageKey" rows="1" maxlength="1500" placeholder="Escribí tu consulta o pedime una acción..." disabled="@busy"></textarea>
+                    <button id="tb-send" type="button" class="tb-primary tb-send" aria-label="Enviar mensaje" @onclick="Send" disabled="@(busy || string.IsNullOrWhiteSpace(text))"><span aria-hidden="true">➤</span></button>
+                </div>
+                <p class="tb-compose-hint">Ctrl + Enter para enviar. Los pagos solo cambian después de tu confirmación explícita.</p>
+            </div>
+        </section>
+        <p class="tb-retention">Tu historial se conserva durante @retentionDays días. Podés borrarlo cuando quieras.</p>
+    </main>
+</div>
+
+@code {
+    private readonly CultureInfo culture = CultureInfo.GetCultureInfo("es-AR");
+    private List<HistoryMessage> history = [];
+    private List<StudentChoice>? studentCandidates;
+    private List<PaymentView>? payments;
+    private DebtResult? debt;
+    private StatisticsResult? statistics;
+    private OperationView? operation;
+    private string text = "";
+    private string? pendingSubmitted;
+    private string? error, notice, focusTarget;
+    private bool busy = true, initialized, askClearHistory, statusUnknown, scrollConversation;
+    private int retentionDays = 30;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { await LoadHistory(); }
+            catch (Exception exception) { SetError(exception); }
+            finally { busy = false; initialized = true; scrollConversation = true; StateHasChanged(); }
+        }
+        if (focusTarget is { } target)
+        {
+            focusTarget = null;
+            await JS.InvokeVoidAsync("TaekwonLocalApi.focus", target);
+        }
+        if (scrollConversation)
+        {
+            scrollConversation = false;
+            await JS.InvokeVoidAsync("TaekwonLocalApi.scrollConversation");
+        }
+    }
+
+    private async Task Run(Func<Task> action)
+    {
+        if (busy) return;
+        busy = true;
+        error = null;
+        notice = null;
+        try { await action(); }
+        catch (Exception exception) { SetError(exception); }
+        finally { busy = false; pendingSubmitted = null; scrollConversation = true; }
+    }
+
+    private void SetError(Exception exception) =>
+        error = exception is BotApiException api ? api.Message : "No se pudo completar la consulta. Verificá la conexión y volvé a intentarlo.";
+
+    private async Task LoadHistory()
+    {
+        var page = await Bot.History();
+        history = page.Messages;
+        retentionDays = page.RetentionDays;
+    }
+
+    private Task MessageKey(KeyboardEventArgs e) =>
+        e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? Send() : Task.CompletedTask;
+
+    private Task Send() => SendText(text);
+    private Task ChooseCandidate(int ordinal) => SendText($"el {Ordinal(ordinal)}");
+
+    private Task SendText(string message) => Run(async () =>
+    {
+        var submitted = message.Trim();
+        if (submitted.Length == 0) return;
+        pendingSubmitted = submitted;
+        StateHasChanged();
+        ChatResponse response;
+        try { response = await Bot.Chat(new ChatRequest(submitted)); }
+        catch (BotApiException exception) when (exception.StatusUnknown && operation?.Status == "prepared")
+        {
+            statusUnknown = true;
+            throw;
+        }
+        text = "";
+        studentCandidates = response.StudentCandidates ?? response.Students;
+        debt = response.Debt;
+        statistics = response.Statistics;
+        payments = response.Payments;
+        var returnedOperation = response.PendingOperation ?? response.Operation;
+        // Una consulta intermedia no debe ocultar una propuesta que sigue pendiente.
+        if (returnedOperation is not null || operation?.Status != "prepared")
+            operation = returnedOperation;
+        statusUnknown = false;
+        await LoadHistory();
+        if (history.Count == 0 || history[^1].Role != "assistant" || history[^1].Text != response.Message)
+            history.Add(new HistoryMessage(DateTime.UtcNow.Ticks, "assistant", response.Message, DateTime.UtcNow));
+        focusTarget = returnedOperation?.Status == "prepared" ? "tb-operation-title" : "tb-message";
+    });
+
+    private Task Confirm() => SendText("Sí, confirmo la operación propuesta.");
+    private Task Cancel() => SendText("Cancelá la operación propuesta.");
+
+    private Task CheckStatus() => Run(async () =>
+    {
+        if (operation is null) return;
+        operation = await Bot.Status(operation.OperationRef);
+        statusUnknown = false;
+        notice = operation.Status switch
+        {
+            "confirmed" => "La operación se confirmó. El pago y su auditoría quedaron registrados.",
+            "prepared" => "La propuesta sigue pendiente. Podés confirmar o corregirla por chat.",
+            _ => "Se comprobó el estado de la operación."
+        };
+    });
+
+    private Task ClearHistory() => Run(async () =>
+    {
+        await Bot.ClearHistory();
+        history = [];
+        studentCandidates = null;
+        payments = null;
+        debt = null;
+        statistics = null;
+        operation = null;
+        askClearHistory = false;
+        notice = "Tu historial fue eliminado. Los pagos se conservan.";
+        focusTarget = "tb-message";
+    });
+
+    private static string Ordinal(int number) => number switch
+    {
+        1 => "primero", 2 => "segundo", 3 => "tercero", 4 => "cuarto", 5 => "quinto", _ => number.ToString(CultureInfo.InvariantCulture)
+    };
+    private string PeriodLabel(int year, int month) => $"{culture.DateTimeFormat.GetMonthName(month)} {year}";
+    private string Money(decimal value) => value.ToString("C0", culture);
+}

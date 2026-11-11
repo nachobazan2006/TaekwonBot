@@ -1,0 +1,42 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>Taekwondo Villa Allende</title>
+    <ResourcePreloader />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/shared.css" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="_content/Blazor-ApexCharts/css/apexcharts.css" />
+    <link rel="stylesheet" href="@Assets["BlazorTaekwondo.styles.css"]" />
+    <link rel="stylesheet" href="css/alumnos.css" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon-tkw.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="_framework/blazor.web.js" autostart="false"></script>
+    <script type="module" src="_content/Blazor-ApexCharts/js/blazor-apexcharts.js"></script>
+    <script>
+        Blazor.start({
+            circuit: {
+                configureSignalR: function (builder) {
+                    builder.withUrl('/_blazor', { transport: 4 });
+                }
+            }
+        });
+    </script>
+    <script src="Js/local-api.js"></script>
+    <script src="Js/alumnos.js"></script>
+    <script src="Js/reportes.js"></script>
+    <script src="Js/module-animations.js"></script>
+    <script src="Js/print.js"></script>
+</body>
+
+</html>

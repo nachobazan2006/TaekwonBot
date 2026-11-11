@@ -1,0 +1,710 @@
+@page "/alumnos"
+@attribute [Authorize]
+@using BlazorTaekwondo.Models
+@using BlazorTaekwondo.Services
+@using System.Net
+@inject AlumnoService AlumnoService
+@inject CuotaService CuotaService
+@inject IJSRuntime JS
+
+<div class="alumnos-page">
+    <div class="alumnos-grid">
+        <aside class="student-form-card ui-reveal" style="--reveal-delay: 0ms;">
+            <header class="student-form-header">
+                <span class="form-title-icon">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="10" cy="8" r="3.2" stroke="currentColor" stroke-width="2" />
+                        <path d="M4.5 19c.42-3.8 2.35-5.7 5.5-5.7 2.05 0 3.62.8 4.62 2.38" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path d="M18 11v7m-3.5-3.5h7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </span>
+                <div>
+                    <h1>@(modoEdicion ? "Editar alumno" : "Nuevo alumno")</h1>
+                    <p>Gestiona el padron y los datos base del alumno.</p>
+                </div>
+            </header>
+
+            <div class="student-field">
+                <label for="alumno-nombre">Nombre y apellido</label>
+                <div class="student-input-shell">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="1.8" />
+                        <path d="M5.6 19c.36-3.6 2.5-5.4 6.4-5.4s6.04 1.8 6.4 5.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                    <input id="alumno-nombre" @bind="alumnoActual.NombreApellido" placeholder="Nombre completo" />
+                </div>
+            </div>
+
+            <div class="student-field">
+                <label for="alumno-clase">Clase</label>
+                <div class="student-input-shell select-shell">
+                    <select id="alumno-clase" @bind="alumnoActual.Horario">
+                        <option value="">-- Seleccionar --</option>
+                        <option value="18:40">18:40</option>
+                        <option value="19:45">19:45</option>
+                        <option value="20:45">20:45</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="student-field">
+                <label for="alumno-graduacion">Graduacion</label>
+                <div class="student-input-shell">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M5 8h14M7 8v10m10-10v10M4.5 18h15M8 5l4 3 4-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <input id="alumno-graduacion"
+                           @bind="alumnoActual.Graduacion"
+                           list="graduaciones-sugeridas"
+                           placeholder="Ej: Punta amarilla, cinturon azul" />
+                </div>
+                <datalist id="graduaciones-sugeridas">
+                    @foreach (var graduacion in graduacionesSugeridas)
+                    {
+                        <option value="@graduacion"></option>
+                    }
+                </datalist>
+            </div>
+
+            <div class="student-field">
+                <label for="alumno-fecha">Fecha de registro</label>
+                <div class="student-input-shell">
+                    <input id="alumno-fecha"
+                           type="date"
+                           value="@alumnoActual.FechaRegistro.ToString("yyyy-MM-dd")"
+                           @onchange="e => alumnoActual.FechaRegistro = DateTime.Parse(e.Value?.ToString() ?? DateTime.Today.ToString())" />
+                </div>
+            </div>
+
+            <div class="student-field">
+                <label for="alumno-ficha">Ficha medica</label>
+                <div class="student-input-shell select-shell">
+                    <select id="alumno-ficha" @bind="alumnoActual.FichaMedica">
+                        <option value="No">No</option>
+                        <option value="Sí">Si</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="student-field">
+                <label for="alumno-socio">Socio</label>
+                <div class="student-input-shell select-shell">
+                    <select id="alumno-socio" @bind="alumnoActual.Socio">
+                        <option value="No">No</option>
+                        <option value="Sí">Si</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="student-field">
+                <label for="alumno-gmail">Gmail para recibos</label>
+                <div class="student-input-shell">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 6h16v12H4V6Zm0 0 8 7 8-7" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                    </svg>
+                    <input id="alumno-gmail" type="email" @bind="alumnoActual.Gmail" placeholder="Opcional: nombre@gmail.com" />
+                </div>
+            </div>
+
+            <button class="student-submit" @onclick="GuardarAlumno" disabled="@cargando">
+                <span class="submit-plus">+</span>
+                @(cargando ? "Guardando..." : modoEdicion ? "Guardar cambios" : "Agregar alumno")
+            </button>
+
+            @if (modoEdicion)
+            {
+                <button class="student-cancel" @onclick="CancelarEdicion">Cancelar edicion</button>
+            }
+
+            @if (!string.IsNullOrEmpty(mensajeError))
+            {
+                <div class="student-alert error">@mensajeError</div>
+            }
+            @if (!string.IsNullOrEmpty(mensajeOk))
+            {
+                <div class="student-alert ok">@mensajeOk</div>
+            }
+        </aside>
+
+        <section class="students-panel ui-reveal" style="--reveal-delay: 80ms;">
+            <div class="students-toolbar">
+                <label class="student-search">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m21 21-4.2-4.2M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    <input placeholder="Buscar alumno..."
+                           @bind="busqueda"
+                           @bind:event="oninput"
+                           @bind:after="ResetearPagina" />
+                </label>
+
+                <label class="student-filter">
+                    <select @bind="filtroHorario" @bind:after="ResetearPagina">
+                        <option value="">Todas las clases</option>
+                        <option value="18:40">18:40</option>
+                        <option value="19:45">19:45</option>
+                        <option value="20:45">20:45</option>
+                    </select>
+                </label>
+
+                <button class="filter-reset" @onclick="LimpiarFiltros">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 5h16l-6 7v5l-4 2v-7L4 5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+                    </svg>
+                    Mostrar todos
+                </button>
+
+                <label class="student-filter">Año de planilla <input aria-label="Año de la planilla de pagos" type="number" min="2000" max="2100" @bind="anioImpresion" style="width:90px" /></label>
+                <button class="print-button" @onclick="ImprimirAlumnos" disabled="@imprimiendo">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7v-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    </svg>
+                    @(imprimiendo ? "Preparando..." : "Imprimir")
+                </button>
+            </div>
+
+            <div class="student-summary-grid">
+                <article class="student-summary summary-red">
+                    <span class="summary-icon">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2" />
+                            <path d="M3.8 19c.45-3.3 2.25-5 5.2-5s4.75 1.7 5.2 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="17" cy="9" r="2.4" stroke="currentColor" stroke-width="2" />
+                        </svg>
+                    </span>
+                    <div>
+                        <span>Total alumnos</span>
+                        <strong class="js-module-counter" data-count-value="@alumnosFiltrados.Count" data-count-type="number" data-animate-key="alumnos-total-card">@alumnosFiltrados.Count</strong>
+                        <p>Padron actual registrado</p>
+                    </div>
+                </article>
+
+                <article class="student-summary summary-green">
+                    <span class="summary-icon">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M7 3h10v18H7V3Zm3 5h4m-4 4 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                    <div>
+                        <span>Con ficha medica</span>
+                        <strong class="js-module-counter" data-count-value="@alumnosConFichaFiltrados" data-count-type="number" data-animate-key="alumnos-ficha-card">@alumnosConFichaFiltrados</strong>
+                        <p>@PorcentajeFicha().ToString("0")% del total al dia</p>
+                        <div class="progress-line"><i style="width:@($"{PorcentajeFicha().ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%")"></i></div>
+                    </div>
+                </article>
+
+                <article class="student-summary summary-amber">
+                    <span class="summary-icon">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="m12 3 2.7 5.47 6.03.88-4.36 4.25 1.03 6-5.4-2.84L6.6 19.6l1.03-6-4.36-4.25 6.03-.88L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                    <div>
+                        <span>Socios activos</span>
+                        <strong class="js-module-counter" data-count-value="@alumnosSociosFiltrados" data-count-type="number" data-animate-key="alumnos-socios-card">@alumnosSociosFiltrados</strong>
+                        <p>@PorcentajeSocios().ToString("0")% del padron participa como socio</p>
+                        <div class="progress-line amber"><i style="width:@($"{PorcentajeSocios().ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%")"></i></div>
+                    </div>
+                </article>
+            </div>
+
+            @if (!cargandoLista)
+            {
+                <div class="students-count">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="2" />
+                        <path d="M3.8 19c.45-3.3 2.25-5 5.2-5s4.75 1.7 5.2 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path d="M16 11c2.3.35 3.7 1.7 4.2 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Mostrando <strong>@alumnosFiltrados.Count</strong> alumno@(alumnosFiltrados.Count != 1 ? "s" : "")
+                </div>
+            }
+
+            @if (cargandoLista)
+            {
+                <div class="student-state">
+                    <div class="spinner"></div>
+                    <span>Cargando alumnos...</span>
+                </div>
+            }
+            else if (!alumnosFiltrados.Any())
+            {
+                <div class="student-state">
+                    <span>No se encontraron alumnos.</span>
+                </div>
+            }
+            else
+            {
+                <div class="students-table-wrap">
+                    <table class="students-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre y apellido</th>
+                                <th>Graduacion</th>
+                                <th>Clase</th>
+                                <th>Socio</th>
+                                <th>Ficha medica</th>
+                                <th>Gmail</th>
+                                <th>Fecha registro</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var alumno in alumnosPagina)
+                            {
+                                <tr @key="alumno.Id">
+                                    <td><strong>@alumno.NombreApellido</strong></td>
+                                    <td>@(string.IsNullOrWhiteSpace(alumno.Graduacion) ? "-" : alumno.Graduacion)</td>
+                                    <td>@alumno.Horario</td>
+                                    <td>
+                                        <span class="status-badge @(EsSi(alumno.Socio) ? "yes" : "no")">@NormalizarSiNo(alumno.Socio)</span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge @(EsSi(alumno.FichaMedica) ? "yes" : "no")">@NormalizarSiNo(alumno.FichaMedica)</span>
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(alumno.Gmail) ? "-" : alumno.Gmail)</td>
+                                    <td>@alumno.FechaRegistro.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <div class="student-actions">
+                                            <button class="row-action edit" @onclick="() => IniciarEdicion(alumno)">Editar</button>
+                                            <button class="row-action delete" @onclick="() => BorrarAlumno(alumno)">Borrar</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <footer class="students-pagination">
+                    <button @onclick="PaginaAnterior" disabled="@(paginaActual <= 1)">
+                        <span aria-hidden="true">‹</span>
+                        Anterior
+                    </button>
+
+                    @foreach (var pagina in PaginasVisibles())
+                    {
+                        if (pagina is null)
+                        {
+                            <span class="pager-ellipsis">...</span>
+                        }
+                        else
+                        {
+                            <button class="@(pagina == PaginaNormalizada ? "active" : "")" @onclick="() => IrAPagina(pagina.Value)">
+                                @pagina
+                            </button>
+                        }
+                    }
+
+                    <button @onclick="PaginaSiguiente" disabled="@(paginaActual >= totalPaginas)">
+                        Siguiente
+                        <span aria-hidden="true">›</span>
+                    </button>
+                </footer>
+            }
+        </section>
+    </div>
+</div>
+
+@code {
+    private static readonly string[] meses = new[]
+    {
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    };
+
+    private List<AlumnoDto> alumnos = new();
+    private AlumnoDto alumnoActual = CrearAlumnoNuevo();
+    private string busqueda = string.Empty;
+    private string filtroHorario = string.Empty;
+    private string mensajeError = string.Empty;
+    private string mensajeOk = string.Empty;
+    private bool modoEdicion;
+    private bool cargando;
+    private bool cargandoLista;
+    private bool imprimirClase = true;
+    private bool imprimirGraduacion = true;
+    private bool imprimirFichaMedica = true;
+    private bool imprimirSocio = true;
+    private bool imprimiendo;
+    private string mensajeErrorImpresion = string.Empty;
+    private string mesImpresion1 = "Marzo";
+    private int anioImpresion = DateTime.Today.Year;
+    private string mesImpresion2 = "Abril";
+    private int paginaActual = 1;
+    private const int CantidadPorPagina = 10;
+
+    private List<string> graduacionesSugeridas => alumnos
+        .Select(a => a.Graduacion?.Trim())
+        .Where(g => !string.IsNullOrWhiteSpace(g))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(g => g)
+        .Cast<string>()
+        .ToList();
+
+    private List<AlumnoDto> alumnosFiltrados => alumnos
+        .Where(a =>
+            (string.IsNullOrWhiteSpace(busqueda) || a.NombreApellido.Contains(busqueda, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(filtroHorario) || a.Horario == filtroHorario))
+        .OrderBy(a => a.NombreApellido)
+        .ToList();
+
+    private int alumnosConFichaFiltrados => alumnosFiltrados.Count(a => EsSi(a.FichaMedica));
+    private int alumnosSociosFiltrados => alumnosFiltrados.Count(a => EsSi(a.Socio));
+    private int totalPaginas => Math.Max(1, (int)Math.Ceiling(alumnosFiltrados.Count / (double)CantidadPorPagina));
+    private int PaginaNormalizada => Math.Min(Math.Max(1, paginaActual), totalPaginas);
+    private List<AlumnoDto> alumnosPagina => alumnosFiltrados
+        .Skip((PaginaNormalizada - 1) * CantidadPorPagina)
+        .Take(CantidadPorPagina)
+        .ToList();
+
+protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CargarAlumnos();
+            await JS.InvokeVoidAsync("AlumnosUI.refresh");
+        }
+    }
+
+    private async Task CargarAlumnos()
+    {
+        mensajeError = string.Empty;
+        cargandoLista = true;
+        StateHasChanged();
+        alumnos = await AlumnoService.GetAlumnosAsync();
+        if (!string.IsNullOrWhiteSpace(AlumnoService.LastError))
+        {
+            mensajeError = AlumnoService.LastError;
+        }
+        cargandoLista = false;
+        ResetearPagina();
+        StateHasChanged();
+    }
+
+    private void IniciarEdicion(AlumnoDto alumnoSeleccionado)
+    {
+        alumnoActual = new AlumnoDto
+        {
+            Id = alumnoSeleccionado.Id,
+            NombreApellido = alumnoSeleccionado.NombreApellido,
+            Graduacion = alumnoSeleccionado.Graduacion,
+            Horario = alumnoSeleccionado.Horario,
+            FichaMedica = string.IsNullOrWhiteSpace(alumnoSeleccionado.FichaMedica) ? "No" : alumnoSeleccionado.FichaMedica,
+            Socio = string.IsNullOrWhiteSpace(alumnoSeleccionado.Socio) ? "No" : alumnoSeleccionado.Socio,
+            Gmail = alumnoSeleccionado.Gmail,
+            FechaRegistro = alumnoSeleccionado.FechaRegistro
+        };
+
+        modoEdicion = true;
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+    }
+
+    private void CancelarEdicion()
+    {
+        modoEdicion = false;
+        alumnoActual = CrearAlumnoNuevo();
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+    }
+
+    private async Task GuardarAlumno()
+    {
+        mensajeError = string.Empty;
+        mensajeOk = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(alumnoActual.NombreApellido))
+        {
+            mensajeError = "El nombre y apellido es obligatorio.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(alumnoActual.Horario))
+        {
+            mensajeError = "Selecciona una clase.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(alumnoActual.FichaMedica))
+        {
+            alumnoActual.FichaMedica = "No";
+        }
+
+        if (string.IsNullOrWhiteSpace(alumnoActual.Socio))
+        {
+            alumnoActual.Socio = "No";
+        }
+
+        var alumnoParaGuardar = new AlumnoDto
+        {
+            Id = alumnoActual.Id,
+            NombreApellido = alumnoActual.NombreApellido.Trim(),
+            Graduacion = alumnoActual.Graduacion.Trim(),
+            Horario = alumnoActual.Horario.Trim(),
+            FichaMedica = alumnoActual.FichaMedica,
+            Socio = alumnoActual.Socio,
+            Gmail = alumnoActual.Gmail?.Trim() ?? string.Empty,
+            FechaRegistro = DateTime.SpecifyKind(alumnoActual.FechaRegistro.Date, DateTimeKind.Utc)
+        };
+
+        cargando = true;
+        var ok = modoEdicion
+            ? await AlumnoService.EditarAlumnoAsync(alumnoParaGuardar.Id, alumnoParaGuardar)
+            : await AlumnoService.AgregarAlumnoAsync(alumnoParaGuardar);
+        cargando = false;
+
+        if (ok)
+        {
+            var mensaje = modoEdicion ? "Alumno actualizado correctamente." : "Alumno agregado correctamente.";
+            CancelarEdicion();
+            mensajeOk = mensaje;
+            await CargarAlumnos();
+        }
+        else
+        {
+            mensajeError = AlumnoService.LastError;
+        }
+    }
+
+    private async Task BorrarAlumno(AlumnoDto alumno)
+    {
+        var confirmar = await JS.InvokeAsync<bool>("confirm", $"¿Eliminar a {alumno.NombreApellido}?");
+        if (!confirmar) return;
+
+        cargando = true;
+        var ok = await AlumnoService.BorrarAlumnoAsync(alumno.Id);
+        cargando = false;
+
+        if (ok)
+        {
+            mensajeOk = "Alumno eliminado correctamente.";
+            await CargarAlumnos();
+        }
+        else
+        {
+            mensajeError = AlumnoService.LastError;
+        }
+    }
+
+    private void LimpiarFiltros()
+    {
+        busqueda = string.Empty;
+        filtroHorario = string.Empty;
+        ResetearPagina();
+    }
+
+    private async Task ImprimirAlumnos()
+    {
+        mensajeErrorImpresion = string.Empty;
+
+        var alumnosParaImprimir = alumnosFiltrados;
+        if (!alumnosParaImprimir.Any())
+        {
+            mensajeErrorImpresion = "No es posible imprimir porque no hay datos.";
+            mensajeError = mensajeErrorImpresion;
+            return;
+        }
+
+        imprimiendo = true;
+
+        try
+        {
+            var cuotas = await CuotaService.GetCuotasAsync();
+            if (!string.IsNullOrWhiteSpace(CuotaService.LastError))
+            {
+                mensajeError = CuotaService.LastError;
+                return;
+            }
+
+            var mesesSeleccionados = new[] { mesImpresion1, mesImpresion2 }
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var html = ConstruirHtmlImpresionAlumnos(alumnosParaImprimir, cuotas, mesesSeleccionados);
+            await JS.InvokeVoidAsync("TkdPrint.printHtml", "Planilla de alumnos", html);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo preparar la impresion: {ex.Message}";
+        }
+        finally
+        {
+            imprimiendo = false;
+        }
+    }
+
+    private string ConstruirHtmlImpresionAlumnos(IEnumerable<AlumnoDto> alumnosParaImprimir, IEnumerable<CuotaDto> cuotas, List<string> mesesSeleccionados)
+    {
+        var encabezados = new List<string> { "<th>Nombre y apellido</th>" };
+
+        if (imprimirClase) encabezados.Add("<th>Clase</th>");
+        if (imprimirGraduacion) encabezados.Add("<th>Graduacion</th>");
+        if (imprimirFichaMedica) encabezados.Add("<th>Ficha medica</th>");
+        if (imprimirSocio) encabezados.Add("<th>Socio</th>");
+
+        encabezados.AddRange(mesesSeleccionados.Select(mes => $"<th>{WebUtility.HtmlEncode(mes)} {anioImpresion}</th>"));
+
+        var cuotasLookup = cuotas
+            .Where(c => c.Estado == "active" && c.AlumnoClubId > 0 && c.PeriodoAnio == anioImpresion)
+            .GroupBy(c => $"{c.AlumnoClubId}|{NormalizarClave(c.Mes)}")
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.Fecha).First());
+
+        var filas = alumnosParaImprimir.Select(alumno =>
+        {
+            var celdas = new List<string>
+            {
+                $"<td>{WebUtility.HtmlEncode(alumno.NombreApellido)}</td>"
+            };
+
+            if (imprimirClase) celdas.Add($"<td>{WebUtility.HtmlEncode(alumno.Horario)}</td>");
+            if (imprimirGraduacion) celdas.Add($"<td>{WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(alumno.Graduacion) ? "-" : alumno.Graduacion)}</td>");
+            if (imprimirFichaMedica) celdas.Add($"<td class=\"center\">{WebUtility.HtmlEncode(NormalizarSiNo(alumno.FichaMedica))}</td>");
+            if (imprimirSocio) celdas.Add($"<td class=\"center\">{WebUtility.HtmlEncode(NormalizarSiNo(alumno.Socio))}</td>");
+
+            foreach (var mes in mesesSeleccionados)
+            {
+                var clave = $"{alumno.Id}|{NormalizarClave(mes)}";
+                if (cuotasLookup.TryGetValue(clave, out var cuota))
+                {
+                    celdas.Add($"<td class=\"center status-paid\">Pago<br><span class=\"muted\">{WebUtility.HtmlEncode(FormatearMontoPrint(cuota.Monto))}</span></td>");
+                }
+                else
+                {
+                    celdas.Add("<td class=\"center status-unpaid\">No pago</td>");
+                }
+            }
+
+            return $"<tr>{string.Join(string.Empty, celdas)}</tr>";
+        });
+
+        var resumen = new List<string>
+        {
+            $"<span class=\"print-pill\">Alumnos: {alumnosParaImprimir.Count()}</span>"
+        };
+
+        if (!string.IsNullOrWhiteSpace(filtroHorario))
+        {
+            resumen.Add($"<span class=\"print-pill\">Clase filtrada: {WebUtility.HtmlEncode(filtroHorario)}</span>");
+        }
+
+        foreach (var mes in mesesSeleccionados)
+        {
+            resumen.Add($"<span class=\"print-pill\">Mes: {WebUtility.HtmlEncode(mes)}</span>");
+        }
+
+        return $"""
+            <div class="print-shell">
+                <div class="print-header">
+                    <div>
+                        <h1 class="print-title">Planilla de alumnos</h1>
+                        <p class="print-meta">Generada el {DateTime.Now:dd/MM/yyyy HH:mm}</p>
+                    </div>
+                    <div class="print-summary">
+                        {string.Join(string.Empty, resumen)}
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>{string.Join(string.Empty, encabezados)}</tr>
+                    </thead>
+                    <tbody>
+                        {string.Join(string.Empty, filas)}
+                    </tbody>
+                </table>
+            </div>
+            """;
+    }
+
+    private void ResetearPagina()
+    {
+        paginaActual = 1;
+    }
+
+    private void PaginaAnterior()
+    {
+        paginaActual = Math.Max(1, PaginaNormalizada - 1);
+    }
+
+    private void PaginaSiguiente()
+    {
+        paginaActual = Math.Min(totalPaginas, PaginaNormalizada + 1);
+    }
+
+    private void IrAPagina(int pagina)
+    {
+        paginaActual = Math.Min(Math.Max(1, pagina), totalPaginas);
+    }
+
+    private IEnumerable<int?> PaginasVisibles()
+    {
+        if (totalPaginas <= 5)
+        {
+            return Enumerable.Range(1, totalPaginas).Select<int, int?>(x => x);
+        }
+
+        var paginas = new List<int?> { 1 };
+        var inicio = Math.Max(2, PaginaNormalizada - 1);
+        var fin = Math.Min(totalPaginas - 1, PaginaNormalizada + 1);
+
+        if (inicio > 2)
+        {
+            paginas.Add(null);
+        }
+
+        for (var pagina = inicio; pagina <= fin; pagina++)
+        {
+            paginas.Add(pagina);
+        }
+
+        if (fin < totalPaginas - 1)
+        {
+            paginas.Add(null);
+        }
+
+        paginas.Add(totalPaginas);
+        return paginas;
+    }
+
+    private decimal PorcentajeFicha()
+    {
+        return alumnosFiltrados.Count == 0 ? 0 : Math.Round(alumnosConFichaFiltrados / (decimal)alumnosFiltrados.Count * 100m, 1);
+    }
+
+    private decimal PorcentajeSocios()
+    {
+        return alumnosFiltrados.Count == 0 ? 0 : Math.Round(alumnosSociosFiltrados / (decimal)alumnosFiltrados.Count * 100m, 1);
+    }
+
+    private static bool EsSi(string? valor)
+    {
+        return string.Equals(valor?.Trim(), "Sí", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(valor?.Trim(), "Si", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizarSiNo(string? valor)
+    {
+        return EsSi(valor) ? "Si" : "No";
+    }
+
+    private static string FormatearMontoPrint(decimal monto)
+    {
+        return string.Format("${0:N0}", monto);
+    }
+
+    private static string NormalizarClave(string? valor)
+    {
+        return (valor ?? string.Empty).Trim().ToUpperInvariant();
+    }
+
+    private static AlumnoDto CrearAlumnoNuevo()
+    {
+        return new AlumnoDto
+        {
+            FechaRegistro = DateTime.Today,
+            FichaMedica = "No",
+            Socio = "No"
+        };
+    }
+}
